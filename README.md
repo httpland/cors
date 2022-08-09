@@ -1,5 +1,10 @@
 # cors
 
+[![deno land](http://img.shields.io/badge/available%20on-deno.land/x-lightgrey.svg?logo=deno)](https://deno.land/x/cors_protocol)
+[![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/cors_protocol/mod.ts)
+![npm](https://img.shields.io/npm/v/@httpland/cors)
+![GitHub](https://img.shields.io/github/license/httpland/cors)
+
 CORS protocol for standard `Request` and `Response`.
 
 ## Usage
@@ -21,7 +26,7 @@ function handler(req: Request): Response {
 await serve(withCors(handler));
 ```
 
-then, The endpoint support simple request and preflight request.
+then, the endpoint support simple request and preflight request.
 
 ## License
 

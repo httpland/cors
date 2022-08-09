@@ -2,6 +2,7 @@ import { Status, STATUS_TEXT } from "./deps.ts";
 
 export type CorsHeaders = {
   "Access-Control-Allow-Origin": string;
+  // deno-lint-ignore ban-types
   "Access-Control-Allow-Credentials": (string & {}) | "true" | true;
   "Access-Control-Allow-Headers": string;
   "Access-Control-Allow-Methods": string;
