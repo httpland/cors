@@ -134,7 +134,7 @@ it(
   async () => {
     const handler = withCors(() => new Response(null), {
       headers: {
-        "Access-Control-Allow-Credentials": true,
+        "Access-Control-Allow-Credentials": "true",
       },
     });
     const res = await handler(
@@ -221,7 +221,7 @@ it(
   async () => {
     const handler = withCors(() => new Response(null), {
       headers: {
-        "Access-Control-Max-Age": 100,
+        "Access-Control-Max-Age": "100",
       },
     });
     const res = await handler(
@@ -249,7 +249,7 @@ it(
   async () => {
     const handler = withCors(() => new Response(null), {
       headers: {
-        "Access-Control-Max-Age": 100,
+        "Access-Control-Max-Age": "100",
       },
     });
     const res = await handler(
@@ -500,7 +500,7 @@ describe("preflight request", () => {
     async () => {
       const handler = withCors(() => new Response(null), {
         headers: {
-          "Access-Control-Max-Age": 100,
+          "Access-Control-Max-Age": "100",
         },
       });
       const res = await handler(

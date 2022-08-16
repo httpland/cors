@@ -2,18 +2,25 @@
 
 [![deno land](http://img.shields.io/badge/available%20on-deno.land/x-lightgrey.svg?logo=deno)](https://deno.land/x/cors_protocol)
 [![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/cors_protocol/mod.ts)
-![npm](https://img.shields.io/npm/v/@httpland/cors)
-![GitHub](https://img.shields.io/github/license/httpland/cors)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/httpland/cors)](https://github.com/httpland/cors/releases)
+[![codecov](https://codecov.io/gh/httpland/cors/branch/main/graph/badge.svg?token=nan4NUrx1V)](https://codecov.io/gh/httpland/cors)
+[![GitHub](https://img.shields.io/github/license/httpland/cors)](https://github.com/httpland/cors/blob/main/LICENSE)
+
+[![test](https://github.com/httpland/cors/actions/workflows/test.yaml/badge.svg)](https://github.com/httpland/cors/actions/workflows/test.yaml)
+[![NPM](https://nodei.co/npm/@httpland/cors.png?mini=true)](https://nodei.co/npm/@httpland/cors/)
 
 CORS protocol for standard `Request` and `Response`.
 
-## Usage
+## Packages
 
-core:
+The package supports multiple platforms.
 
-- `withCors` - Create a handler that supports the CORS protocol.
+- deno.land/x - `https://deno.land/x/cors_protocol/mod.ts`
+- npm - `@httpland/cors`
 
-basic:
+## Treat CORS automatically
+
+`withCors` accept HTTP request handler and add CORS headers to response header.
 
 ```ts
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
@@ -27,6 +34,47 @@ await serve(withCors(handler));
 ```
 
 then, the endpoint support simple request and preflight request.
+
+## Utility
+
+We provide utilities based on Living Standard - Fetch, 3.2.2. HTTP requests.
+
+```ts
+import { isCorsRequest } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts";
+
+assertEquals(isCorsRequest(new Request("http://localhost")), false);
+assertEquals(
+  isCorsRequest(
+    new Request("http://localhost", {
+      headers: {
+        origin: "http://test.test",
+      },
+    }),
+  ),
+  true,
+);
+```
+
+```ts
+import { isCorsPreflightRequest } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts";
+
+assertEquals(isCorsPreflightRequest(new Request("http://localhost")), false);
+assertEquals(
+  isCorsPreflightRequest(
+    new Request("http://localhost", {
+      method: "OPTIONS",
+      headers: {
+        origin: "http://test.test",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "Content-Type",
+      },
+    }),
+  ),
+  true,
+);
+```
 
 ## License
 

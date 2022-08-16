@@ -1,13 +1,13 @@
 import { Status, STATUS_TEXT } from "./deps.ts";
 import { validateCorsRequest, validatePreflightRequest } from "./utils.ts";
 
+/** CORS protocol headers. */
 export interface CorsHeaders {
   "Access-Control-Allow-Origin": string;
-  // deno-lint-ignore ban-types
-  "Access-Control-Allow-Credentials": (string & {}) | "true" | true;
+  "Access-Control-Allow-Credentials": string;
   "Access-Control-Allow-Headers": string;
   "Access-Control-Allow-Methods": string;
-  "Access-Control-Max-Age": string | number;
+  "Access-Control-Max-Age": string;
   "Access-Control-Expose-Headers": string;
 }
 
@@ -45,15 +45,16 @@ export function cors(
   return newRes;
 }
 
-export type Handler = (
-  req: Request,
-) => Promise<Response> | Response;
+/** HTTP request handler. */
+export type Handler = (req: Request) => Promise<Response> | Response;
 
+/** Options. */
 export interface Options {
   readonly headers?: Partial<CorsHeaders>;
 }
 
 /** Create a handler that supports the CORS protocol.
+ *
  * ```ts
  * import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
  * import { Handler, serve } from "https://deno.land/std@$VERSION/http/mod.ts";
@@ -130,13 +131,13 @@ function createPreflightResponse(
   if (maybeAccessControlAllowCredentials) {
     headers.set(
       "Access-Control-Allow-Credentials",
-      String(maybeAccessControlAllowCredentials),
+      maybeAccessControlAllowCredentials,
     );
   }
   if (_headers?.["Access-Control-Max-Age"]) {
     headers.set(
       "Access-Control-Max-Age",
-      String(_headers["Access-Control-Max-Age"]),
+      _headers["Access-Control-Max-Age"],
     );
   }
 

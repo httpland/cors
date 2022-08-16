@@ -1,4 +1,4 @@
-import { isCorsRequest, isPreflightRequest } from "./utils.ts";
+import { isCorsPreflightRequest, isCorsRequest } from "./utils.ts";
 import { describe, expect, it } from "./dev_deps.ts";
 
 describe("isCorsRequest", () => {
@@ -17,9 +17,9 @@ describe("isCorsRequest", () => {
   });
 });
 
-describe("isPreflightRequest", () => {
+describe("isCorsPreflightRequest", () => {
   it("should be falsy when the request has not origin header", () => {
-    expect(isPreflightRequest(
+    expect(isCorsPreflightRequest(
       new Request("http://localhost", {
         method: "OPTIONS",
         headers: {
@@ -31,7 +31,7 @@ describe("isPreflightRequest", () => {
   });
 
   it("should be truthy when the request has specify headers and method is OPTIONS", () => {
-    expect(isPreflightRequest(
+    expect(isCorsPreflightRequest(
       new Request("http://localhost", {
         method: "OPTIONS",
         headers: {

@@ -27,7 +27,7 @@ export function validatePreflightRequest(
     "Access-Control-Request-Headers": string;
   };
 }] | [valid: false] {
-  if (isPreflightRequest(corsReq)) {
+  if (isCorsPreflightRequest(corsReq)) {
     return [true, {
       method: corsReq.method as "OPTIONS",
       headers: {
@@ -46,7 +46,7 @@ export function validatePreflightRequest(
 /** Whether the request is preflight request or not.
  * Living Standard - Fetch, 3.2.2 HTTP requests
  */
-export function isPreflightRequest(req: Request): boolean {
+export function isCorsPreflightRequest(req: Request): boolean {
   return isCorsRequest(req) &&
     req.method === "OPTIONS" &&
     req.headers.has("Access-Control-Request-Method") &&
