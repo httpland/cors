@@ -10,7 +10,9 @@ export function validateCorsRequest(
   return [false];
 }
 
-/** Whether the request is cors request or not. */
+/** Whether the request is cors request or not.
+ * Living Standard - Fetch, 3.2.2 HTTP requests
+ */
 export function isCorsRequest(req: Request): boolean {
   return req.headers.has("origin");
 }
@@ -41,8 +43,12 @@ export function validatePreflightRequest(
   return [false];
 }
 
-/** Whether the request is preflight request or not. */
-export function isPreflightRequest({ method, headers }: Request): boolean {
-  return method === "OPTIONS" && headers.has("Access-Control-Request-Method") &&
-    headers.has("Access-Control-Request-Headers");
+/** Whether the request is preflight request or not.
+ * Living Standard - Fetch, 3.2.2 HTTP requests
+ */
+export function isPreflightRequest(req: Request): boolean {
+  return isCorsRequest(req) &&
+    req.method === "OPTIONS" &&
+    req.headers.has("Access-Control-Request-Method") &&
+    req.headers.has("Access-Control-Request-Headers");
 }
