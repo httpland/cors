@@ -1,6 +1,7 @@
 import { Status, STATUS_TEXT } from "./deps.ts";
+import { validateCorsRequest, validatePreflightRequest } from "./utils.ts";
 
-export type CorsHeaders = {
+export interface CorsHeaders {
   "Access-Control-Allow-Origin": string;
   // deno-lint-ignore ban-types
   "Access-Control-Allow-Credentials": (string & {}) | "true" | true;
@@ -8,82 +9,49 @@ export type CorsHeaders = {
   "Access-Control-Allow-Methods": string;
   "Access-Control-Max-Age": string | number;
   "Access-Control-Expose-Headers": string;
-};
+}
 
 export function cors(
   req: Request,
   res: Response,
-  headers: Partial<CorsHeaders> = {},
+  { headers }: Partial<Options> = {},
 ): Promise<Response> | Response {
-  if (isCorsRequest(req)) {
-    const origin = req.headers.get("Origin")!;
-    const accessControlAllowOrigin = headers["Access-Control-Allow-Origin"] ??
-      origin;
-    const accessControlAllowCredentials =
-      headers["Access-Control-Allow-Credentials"];
+  const result = validateCorsRequest(req);
+  if (!result[0]) return res;
+  const [valid] = validatePreflightRequest(req);
 
-    if (isPreflightRequest(req)) {
-      const accessControlRequestHeaders = req.headers.get(
-        "Access-Control-Request-Headers",
-      )!;
-      const accessControlAllowHeaders =
-        headers["Access-Control-Allow-Headers"] ?? accessControlRequestHeaders;
-      const accessControlRequestMethod = req.headers.get(
-        "Access-Control-Request-Method",
-      )!;
-      const accessControlRequestMethods = Array.from(
-        new Set([...parseHeader(accessControlRequestMethod), "OPTIONS"]),
-      );
-      const accessControlAllowMethods =
-        headers["Access-Control-Allow-Methods"] ?? stringifyHeader(
-          accessControlRequestMethods,
-        );
-      const _headers = new Headers({
-        "Access-Control-Allow-Origin": accessControlAllowOrigin,
-        "Access-Control-Allow-Methods": accessControlAllowMethods,
-        "Access-Control-Allow-Headers": accessControlAllowHeaders,
-      });
+  if (valid) return createPreflightResponse(req, headers);
 
-      if (accessControlAllowCredentials) {
-        _headers.set(
-          "Access-Control-Allow-Credentials",
-          String(accessControlAllowCredentials),
-        );
-      }
-      if (headers["Access-Control-Max-Age"]) {
-        _headers.set(
-          "Access-Control-Max-Age",
-          String(headers["Access-Control-Max-Age"]),
-        );
-      }
+  const origin = result[1].headers.origin;
+  const accessControlAllowOrigin = headers?.["Access-Control-Allow-Origin"] ??
+    origin;
+  const maybeAccessControlAllowCredentials = headers
+    ?.["Access-Control-Allow-Credentials"];
 
-      return new Response(null, {
-        status: Status.NoContent,
-        statusText: STATUS_TEXT[Status.NoContent],
-        headers: _headers,
-      });
-    }
-
-    res.headers.set("Access-Control-Allow-Origin", accessControlAllowOrigin);
-    if (accessControlAllowCredentials) {
-      res.headers.set(
-        "Access-Control-Allow-Credentials",
-        String(accessControlAllowCredentials),
-      );
-    }
-    if (headers["Access-Control-Expose-Headers"]) {
-      res.headers.set(
-        "Access-Control-Expose-Headers",
-        headers["Access-Control-Expose-Headers"],
-      );
-    }
+  const newRes = res.clone();
+  newRes.headers.set("Access-Control-Allow-Origin", accessControlAllowOrigin);
+  if (maybeAccessControlAllowCredentials) {
+    newRes.headers.set(
+      "Access-Control-Allow-Credentials",
+      String(maybeAccessControlAllowCredentials),
+    );
   }
-  return res;
+  if (headers?.["Access-Control-Expose-Headers"]) {
+    newRes.headers.set(
+      "Access-Control-Expose-Headers",
+      headers["Access-Control-Expose-Headers"],
+    );
+  }
+  return newRes;
 }
 
-export type Handler = (req: Request) => Promise<Response> | Response;
+export type Handler = (
+  req: Request,
+) => Promise<Response> | Response;
 
-export type Options = { headers: Partial<CorsHeaders> };
+export interface Options {
+  readonly headers?: Partial<CorsHeaders>;
+}
 
 /** Create a handler that supports the CORS protocol.
  * ```ts
@@ -99,12 +67,12 @@ export type Options = { headers: Partial<CorsHeaders> };
  */
 export function withCors(
   handler: Handler,
-  { headers }: Readonly<Partial<Options>> = {},
+  { headers }: Options = {},
 ): Handler {
   return async (req) => {
     try {
       const res = await handler(req);
-      return cors(req, res, headers);
+      return cors(req, res, { headers });
     } catch {
       return new Response(null, {
         status: Status.InternalServerError,
@@ -114,20 +82,68 @@ export function withCors(
   };
 }
 
-export function isCorsRequest(req: Request): boolean {
-  return req.headers.has("origin");
-}
-
-export function isPreflightRequest(req: Request): boolean {
-  return req.method === "OPTIONS" &&
-    req.headers.has("Access-Control-Request-Method") &&
-    req.headers.has("Access-Control-Request-Headers");
-}
-
 function parseHeader(headerValue: string | null): string[] {
-  return headerValue?.split(",").map((value) => value.trim()) ?? [];
+  return headerValue?.split(",").map(trim).filter((value) => !!value) ?? [];
 }
 
-function stringifyHeader(headers: readonly string[]): string {
+function trim(value: string): string {
+  return value.trim();
+}
+
+function stringifyHeader(headers: ReadonlyArray<string>): string {
   return headers.join(",");
+}
+
+function createPreflightResponse(
+  req: Request,
+  _headers: Partial<CorsHeaders> | undefined,
+): Response {
+  const origin = req.headers.get("Origin")!;
+  const accessControlAllowOrigin = _headers?.["Access-Control-Allow-Origin"] ??
+    origin;
+  const maybeAccessControlAllowCredentials = _headers
+    ?.["Access-Control-Allow-Credentials"];
+
+  const accessControlRequestHeaders = req.headers.get(
+    "Access-Control-Request-Headers",
+  )!;
+  const accessControlAllowHeaders =
+    _headers?.["Access-Control-Allow-Headers"] ??
+      accessControlRequestHeaders;
+  const accessControlRequestMethod = req.headers.get(
+    "Access-Control-Request-Method",
+  )!;
+  const accessControlRequestMethods = Array.from(
+    new Set([...parseHeader(accessControlRequestMethod), "OPTIONS"]),
+  );
+  const accessControlAllowMethods =
+    _headers?.["Access-Control-Allow-Methods"] ??
+      stringifyHeader(
+        accessControlRequestMethods,
+      );
+  const headers = new Headers({
+    "Access-Control-Allow-Origin": accessControlAllowOrigin,
+    "Access-Control-Allow-Methods": accessControlAllowMethods,
+    "Access-Control-Allow-Headers": accessControlAllowHeaders,
+  });
+
+  if (maybeAccessControlAllowCredentials) {
+    headers.set(
+      "Access-Control-Allow-Credentials",
+      String(maybeAccessControlAllowCredentials),
+    );
+  }
+  if (_headers?.["Access-Control-Max-Age"]) {
+    headers.set(
+      "Access-Control-Max-Age",
+      String(_headers["Access-Control-Max-Age"]),
+    );
+  }
+
+  const status = Status.NoContent;
+  return new Response(null, {
+    status,
+    statusText: STATUS_TEXT[status],
+    headers,
+  });
 }
