@@ -1,3 +1,10 @@
+# [1.0.0-beta.3](https://github.com/httpland/cors/compare/1.0.0-beta.2...1.0.0-beta.3) (2022-09-15)
+
+
+### Features
+
+* **cors:** change options field name, add vary header to cors response ([c3a149d](https://github.com/httpland/cors/commit/c3a149d8d7c86a7ec712a8ce10aaade2e718e631))
+
 # [1.0.0-beta.2](https://github.com/httpland/cors/compare/1.0.0-beta.1...1.0.0-beta.2) (2022-08-16)
 
 
