@@ -18,11 +18,29 @@ it(
 
 it(
   describeTests,
+  "should return same response when the request is same origin",
+  async () => {
+    const _res = new Response();
+    const handler = withCors(() => _res);
+    const res = await handler(
+      new Request("http://localhost", {
+        headers: {
+          origin: "http://localhost",
+        },
+      }),
+    );
+
+    expect(res).toBe(_res);
+  },
+);
+
+it(
+  describeTests,
   "should return same access control allow origin header to origin header when the request is cors request",
   async () => {
     const handler = withCors(() => new Response(null));
     const res = await handler(
-      new Request("http://localhost/", {
+      new Request("http://localhost", {
         headers: {
           origin: "http://test.com",
         },
@@ -34,6 +52,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
+          vary: "Origin",
         },
       }),
     );
@@ -65,6 +84,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com,*",
           hoge: "huga",
+          vary: "Origin",
         },
       }),
     );
@@ -76,9 +96,7 @@ it(
   "should overwrite headers when the request is cors request",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
+      allowOrigin: "*",
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -93,6 +111,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "*",
+          vary: "Origin",
         },
       }),
     );
@@ -104,9 +123,7 @@ it(
   "should add Access-Control-Allow-Credentials when the argument is passed",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Allow-Credentials": "true",
-      },
+      allowCredentials: true,
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -122,6 +139,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-allow-credentials": "true",
+          vary: "Origin",
         },
       }),
     );
@@ -133,9 +151,7 @@ it(
   "should add Access-Control-Allow-Credentials when the argument of boolean is passed",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Allow-Credentials": "true",
-      },
+      allowCredentials: true,
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -151,6 +167,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-allow-credentials": "true",
+          vary: "Origin",
         },
       }),
     );
@@ -162,9 +179,7 @@ it(
   "should add Access-Control-Expose-Headers when the argument is passed",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Expose-Headers": "100",
-      },
+      exposeHeaders: "100",
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -180,6 +195,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-expose-headers": "100",
+          vary: "Origin",
         },
       }),
     );
@@ -191,9 +207,7 @@ it(
   "should add Access-Control-Expose-Headers when the argument of number is passed",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Expose-Headers": "*",
-      },
+      exposeHeaders: "*",
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -209,6 +223,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-expose-headers": "*",
+          vary: "Origin",
         },
       }),
     );
@@ -220,9 +235,7 @@ it(
   "should not add header when the argument is invalid header",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Max-Age": "100",
-      },
+      maxAge: "100",
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -237,6 +250,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
+          vary: "Origin",
         },
       }),
     );
@@ -248,9 +262,7 @@ it(
   "should not add header when the argument is invalid header",
   async () => {
     const handler = withCors(() => new Response(null), {
-      headers: {
-        "Access-Control-Max-Age": "100",
-      },
+      maxAge: 100,
     });
     const res = await handler(
       new Request("http://localhost/", {
@@ -265,6 +277,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
+          vary: "Origin",
         },
       }),
     );
@@ -294,7 +307,9 @@ describe("preflight request", () => {
           headers: {
             "access-control-allow-origin": "http://test.com",
             "access-control-allow-headers": "",
-            "access-control-allow-methods": "POST,OPTIONS",
+            "access-control-allow-methods": "POST , OPTIONS",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -323,7 +338,9 @@ describe("preflight request", () => {
           headers: {
             "access-control-allow-origin": "http://test.com",
             "access-control-allow-headers": "content-type",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -333,9 +350,7 @@ describe("preflight request", () => {
     "should return Access-Control-Allow-Credentials header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Allow-Credentials": "true",
-        },
+        allowCredentials: true,
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -355,8 +370,10 @@ describe("preflight request", () => {
           headers: {
             "access-control-allow-credentials": "true",
             "access-control-allow-headers": "",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -367,9 +384,7 @@ describe("preflight request", () => {
     "should overwrite Access-Control-Allow-Headers header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Allow-Headers": "test",
-        },
+        allowHeaders: "test",
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -388,8 +403,10 @@ describe("preflight request", () => {
           statusText: STATUS_TEXT[Status.NoContent],
           headers: {
             "access-control-allow-headers": "test",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -400,9 +417,7 @@ describe("preflight request", () => {
     "should overwrite Access-Control-Request-Method header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Allow-Methods": "TEST",
-        },
+        allowMethods: "TEST",
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -423,6 +438,8 @@ describe("preflight request", () => {
             "access-control-allow-headers": "",
             "access-control-allow-methods": "TEST",
             "access-control-allow-origin": "http://test.com",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -433,9 +450,7 @@ describe("preflight request", () => {
     "should return Access-Control-Allow-Origin header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+        allowOrigin: "*",
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -454,8 +469,10 @@ describe("preflight request", () => {
           statusText: STATUS_TEXT[Status.NoContent],
           headers: {
             "access-control-allow-headers": "",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
             "access-control-allow-origin": "*",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -466,9 +483,7 @@ describe("preflight request", () => {
     "should not add Access-Control-Expose-Headers header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Expose-Headers": "*",
-        },
+        exposeHeaders: "*",
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -487,8 +502,10 @@ describe("preflight request", () => {
           statusText: STATUS_TEXT[Status.NoContent],
           headers: {
             "access-control-allow-headers": "",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );
@@ -499,9 +516,7 @@ describe("preflight request", () => {
     "should add Access-Control-Max-Age header when the request is preflight request",
     async () => {
       const handler = withCors(() => new Response(null), {
-        headers: {
-          "Access-Control-Max-Age": "100",
-        },
+        maxAge: "100",
       });
       const res = await handler(
         new Request("http://localhost/", {
@@ -520,9 +535,11 @@ describe("preflight request", () => {
           statusText: STATUS_TEXT[Status.NoContent],
           headers: {
             "access-control-allow-headers": "",
-            "access-control-allow-methods": "OPTIONS",
+            "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
             "access-control-max-age": "100",
+            "vary":
+              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
           },
         }),
       );

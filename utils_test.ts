@@ -1,25 +1,35 @@
-import { isCorsPreflightRequest, isCorsRequest } from "./utils.ts";
-import { describe, expect, it } from "./dev_deps.ts";
+import { isCorsRequest, isPreflightRequest } from "./utils.ts";
+import { describe, expect, Fn, it } from "./dev_deps.ts";
 
-describe("isCorsRequest", () => {
-  it("should be falsy when the request has not origin header", () => {
-    expect(isCorsRequest(new Request("http://localhost"))).toBeFalsy();
-  });
-
-  it("should be truthy when the request has origin header", () => {
-    expect(isCorsRequest(
+Deno.test("isCorsRequest should pass", () => {
+  const table: Fn<typeof isCorsRequest>[] = [
+    [new Request("http://localhost"), false],
+    [
+      new Request("http://localhost", {
+        headers: {
+          origin: "http://localhost",
+        },
+      }),
+      false,
+    ],
+    [
       new Request("http://localhost", {
         headers: {
           origin: "",
         },
       }),
-    )).toBeTruthy();
+      true,
+    ],
+  ];
+
+  table.forEach(([req, result]) => {
+    expect(isCorsRequest(req)).toEqual(result);
   });
 });
 
-describe("isCorsPreflightRequest", () => {
+describe("isPreflightRequest", () => {
   it("should be falsy when the request has not origin header", () => {
-    expect(isCorsPreflightRequest(
+    expect(isPreflightRequest(
       new Request("http://localhost", {
         method: "OPTIONS",
         headers: {
@@ -31,7 +41,7 @@ describe("isCorsPreflightRequest", () => {
   });
 
   it("should be truthy when the request has specify headers and method is OPTIONS", () => {
-    expect(isCorsPreflightRequest(
+    expect(isPreflightRequest(
       new Request("http://localhost", {
         method: "OPTIONS",
         headers: {
