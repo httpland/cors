@@ -1,35 +1,47 @@
 import { validateCorsRequest, validatePreflightRequest } from "./utils.ts";
 import {
+  ACCESS_CONTROL_ALLOW_CREDENTIALS,
+  ACCESS_CONTROL_ALLOW_HEADERS,
+  ACCESS_CONTROL_ALLOW_METHODS,
+  ACCESS_CONTROL_ALLOW_ORIGIN,
+  ACCESS_CONTROL_EXPOSE_HEADERS,
+  ACCESS_CONTROL_MAX_AGE,
+} from "./constants.ts";
+import {
   filterTruthy,
   Handler,
-  isString,
+  isFunction,
   isUndefined,
+  KeyValue,
   mergeHeaders,
+  Nullable,
   safeResponse,
   Status,
   STATUS_TEXT,
+  ValueOf,
 } from "./deps.ts";
 
+/** CORS options. */
 export interface CorsOptions {
   /**
    * Configures the `Access-Control-Allow-Origin` header.
    *
    * @default `Origin` field value
    */
-  allowOrigin?: string | Dynamic;
+  allowOrigin?: string | DynamicDefinition;
 
   /**
    * Configures the `Access-Control-Allow-Methods` header.
    *
    * @default `Access-Control-Request-Methods` field value
    */
-  allowMethods?: string | Dynamic;
+  allowMethods?: string | DynamicDefinition;
 
   /** Configures the `Access-Control-Allow-Headers` header.
    *
    * @default `Access-Control-Request-Headers` field value
    */
-  allowHeaders?: string | Dynamic;
+  allowHeaders?: string | DynamicDefinition;
 
   /** Configures the `Access-Control-Expose-Headers` header.
    */
@@ -37,7 +49,7 @@ export interface CorsOptions {
 
   /** Configures the `Access-Control-Allow-Credentials` header.
    */
-  allowCredentials?: boolean;
+  allowCredentials?: string | true;
 
   /** Configures the `Access-Control-Max-Age` header.
    */
@@ -46,133 +58,68 @@ export interface CorsOptions {
   debug?: boolean;
 }
 
-type Dynamic = (fieldValue: string) => string;
+type DynamicDefinition<T = string> = (
+  fieldValue: string,
+) => T;
 
-const echoHeader: Dynamic = (fieldValue) => fieldValue;
+type CorsHeaderOptions = Omit<CorsOptions, "debug">;
+type CorsOptionsDefinition = ValueOf<CorsHeaderOptions>;
 
-function resolveRequestHeaders(
-  definition: CorsOptions["allowHeaders"],
-  defaultValue: string,
-): KeyValue {
-  const value: string = definition
-    ? isString(definition) ? definition : definition(defaultValue)
-    : defaultValue;
-
-  return ["Access-Control-Allow-Headers", value];
-}
-
-function resolveOrigin(
-  definition: CorsOptions["allowOrigin"],
-  origin: string,
-): KeyValue {
-  const value = definition
-    ? isString(definition) ? definition : definition(origin)
-    : origin;
-
-  return ["Access-Control-Allow-Origin", value];
-}
-
-function resolveCredential(
-  definition: CorsOptions["allowCredentials"],
+function resolveDefinition(
+  fieldName: string,
+  definition: CorsOptionsDefinition,
+  defaultValue?: string,
 ): Nullable<KeyValue> {
-  if (!definition) return;
+  if (isUndefined(definition)) {
+    return isUndefined(defaultValue) ? undefined : [fieldName, defaultValue];
+  }
 
-  return ["Access-Control-Allow-Credentials", "true"];
-}
+  if (isFunction(definition)) {
+    return isUndefined(defaultValue)
+      ? undefined
+      : [fieldName, definition(defaultValue)];
+  }
 
-function resolveExpose(
-  definition: CorsOptions["exposeHeaders"],
-): Nullable<KeyValue> {
-  if (!definition) return;
-
-  return ["Access-Control-Expose-Headers", definition];
-}
-
-function resolveMethod(
-  definition: CorsOptions["allowMethods"],
-  defaultValue: string,
-): KeyValue {
-  const value: string = definition
-    ? isString(definition) ? definition : definition(defaultValue)
-    : defaultValue;
-  return ["Access-Control-Allow-Methods", value];
-}
-
-function resolveMaxAge(definition: CorsOptions["maxAge"]): Nullable<KeyValue> {
-  if (isUndefined(definition)) return;
-  return ["Access-Control-Max-Age", String(definition)];
-}
-
-type KeyValue<K = string, V = string> = [key: K, value: V];
-
-type Nullable<T> = T | undefined | null;
-
-interface CorsContext {
-  origin: string;
-}
-
-interface PreflightContext extends CorsContext {
-  accessControlRequestMethod: string;
-  accessControlRequestHeaders: string;
-  method: "OPTIONS";
-}
-
-interface RequestEventHandlerMap {
-  onSameOrigin: (req: Request) => ReturnType<Handler>;
-  onCrossOrigin: (req: Request, context: CorsContext) => ReturnType<Handler>;
-  onPreflight: (req: Request, context: PreflightContext) => ReturnType<Handler>;
-}
-
-function onRequest(
-  req: Request,
-  { onCrossOrigin, onPreflight, onSameOrigin }: RequestEventHandlerMap,
-  debug = false,
-): ReturnType<Handler> {
-  return safeResponse(() => {
-    const validationResult = validateCorsRequest(req);
-
-    if (!validationResult[0]) return onSameOrigin(req);
-
-    const { headers: { origin } } = validationResult[1];
-    const result = validatePreflightRequest(req);
-
-    if (!result[0]) {
-      return onCrossOrigin(req, { origin });
-    }
-
-    const { method, headers } = result[1];
-
-    return onPreflight(req, {
-      origin,
-      method,
-      ...headers,
-    });
-  }, debug);
+  return [fieldName, String(definition)];
 }
 
 export function withCors(
   handler: Handler,
   {
     debug,
-    allowCredentials,
-    exposeHeaders,
     maxAge,
-    allowOrigin = echoHeader,
-    allowMethods = echoHeader,
-    allowHeaders = echoHeader,
+    allowCredentials,
+    allowHeaders,
+    allowMethods,
+    exposeHeaders,
+    allowOrigin,
   }: CorsOptions = {},
 ): Handler {
-  const credentialsSet = resolveCredential(allowCredentials);
-  const exposeSet = resolveExpose(exposeHeaders);
+  const credentialsSet = resolveDefinition(
+    ACCESS_CONTROL_ALLOW_CREDENTIALS,
+    allowCredentials,
+  );
+  const exposeSet = resolveDefinition(
+    ACCESS_CONTROL_EXPOSE_HEADERS,
+    exposeHeaders,
+  );
+  const maxAgeSet = resolveDefinition(
+    ACCESS_CONTROL_MAX_AGE,
+    maxAge,
+  );
 
-  const onSameOrigin: RequestEventHandlerMap["onSameOrigin"] = (req) =>
-    handler(req);
+  const onSameOrigin: RequestEventHandlerMap["onSameOrigin"] = handler;
 
   const onCrossOrigin: RequestEventHandlerMap["onCrossOrigin"] = async (
     req,
     { origin },
   ) => {
-    const originSet = resolveOrigin(allowOrigin, origin);
+    const originSet = resolveDefinition(
+      ACCESS_CONTROL_ALLOW_ORIGIN,
+      allowOrigin,
+      origin,
+    );
+
     const headersInit = filterTruthy([originSet, credentialsSet, exposeSet, [
       "Vary",
       "Origin",
@@ -188,16 +135,21 @@ export function withCors(
     _,
     { origin, accessControlRequestHeaders, accessControlRequestMethod },
   ) => {
-    const originSet = resolveOrigin(allowOrigin, origin);
-    const methodsSet: KeyValue = resolveMethod(
+    const originSet = resolveDefinition(
+      ACCESS_CONTROL_ALLOW_ORIGIN,
+      allowOrigin,
+      origin,
+    );
+    const methodsSet = resolveDefinition(
+      ACCESS_CONTROL_ALLOW_METHODS,
       allowMethods,
       accessControlRequestMethod,
     );
-    const allowHeadersSet: KeyValue = resolveRequestHeaders(
+    const allowHeadersSet = resolveDefinition(
+      ACCESS_CONTROL_ALLOW_HEADERS,
       allowHeaders,
       accessControlRequestHeaders,
     );
-    const maxAgeSet = resolveMaxAge(maxAge);
 
     const headersInit = filterTruthy([
       originSet,
@@ -227,4 +179,47 @@ export function withCors(
   };
 
   return (req) => onRequest(req, handlerMap, debug);
+}
+
+function onRequest(
+  req: Request,
+  { onCrossOrigin, onPreflight, onSameOrigin }: RequestEventHandlerMap,
+  debug = false,
+): ReturnType<Handler> {
+  return safeResponse(() => {
+    const validationResult = validateCorsRequest(req);
+
+    if (!validationResult[0]) return onSameOrigin(req);
+
+    const { headers: { origin } } = validationResult[1];
+    const result = validatePreflightRequest(req);
+
+    if (!result[0]) {
+      return onCrossOrigin(req, { origin });
+    }
+
+    const { method, headers } = result[1];
+
+    return onPreflight(req, {
+      origin,
+      method,
+      ...headers,
+    });
+  }, debug);
+}
+
+interface RequestEventHandlerMap {
+  onSameOrigin: (req: Request) => ReturnType<Handler>;
+  onCrossOrigin: (req: Request, context: CorsContext) => ReturnType<Handler>;
+  onPreflight: (req: Request, context: PreflightContext) => ReturnType<Handler>;
+}
+
+interface CorsContext {
+  origin: string;
+}
+
+interface PreflightContext extends CorsContext {
+  accessControlRequestMethod: string;
+  accessControlRequestHeaders: string;
+  method: "OPTIONS";
 }

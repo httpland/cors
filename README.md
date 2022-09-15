@@ -35,47 +35,6 @@ await serve(withCors(handler));
 
 then, the endpoint support simple request and preflight request.
 
-## Utility
-
-We provide utilities based on Living Standard - Fetch, 3.2.2. HTTP requests.
-
-```ts
-import { isCorsRequest } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts";
-
-assertEquals(isCorsRequest(new Request("http://localhost")), false);
-assertEquals(
-  isCorsRequest(
-    new Request("http://localhost", {
-      headers: {
-        origin: "http://test.test",
-      },
-    }),
-  ),
-  true,
-);
-```
-
-```ts
-import { isCorsPreflightRequest } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-import { assertEquals } from "https://deno.land/std@$VERSION/testing/asserts.ts";
-
-assertEquals(isCorsPreflightRequest(new Request("http://localhost")), false);
-assertEquals(
-  isCorsPreflightRequest(
-    new Request("http://localhost", {
-      method: "OPTIONS",
-      headers: {
-        origin: "http://test.test",
-        "Access-Control-Request-Method": "POST",
-        "Access-Control-Request-Headers": "Content-Type",
-      },
-    }),
-  ),
-  true,
-);
-```
-
 ## License
 
 Copyright © 2022-present [httpland](https://github.com/httpland).

@@ -5,6 +5,7 @@ export {
   STATUS_TEXT,
 } from "https://deno.land/std@0.155.0/http/http_status.ts";
 export {
+  isFunction,
   isNumber,
   isString,
   isTruthy,
@@ -19,3 +20,9 @@ export {
 export function filterTruthy<T>(values: readonly T[]): NonNullable<T>[] {
   return values.filter(isTruthy) as NonNullable<T>[];
 }
+
+export type ValueOf<T> = T[keyof T];
+
+export type Nullable<T> = T | undefined | null;
+
+export type KeyValue<K = string, V = string> = [key: K, value: V];
