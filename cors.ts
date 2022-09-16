@@ -23,39 +23,34 @@ import {
 
 /** CORS options. */
 export interface CorsOptions {
-  /**
-   * Configures the `Access-Control-Allow-Origin` header.
+  /** Configures the `Access-Control-Allow-Origin` header.
    *
    * @default `Origin` field value
    */
-  allowOrigin?: string | DynamicDefinition;
+  readonly allowOrigin?: string | DynamicDefinition;
 
-  /**
-   * Configures the `Access-Control-Allow-Methods` header.
+  /** Configures the `Access-Control-Allow-Methods` header.
    *
    * @default `Access-Control-Request-Methods` field value
    */
-  allowMethods?: string | DynamicDefinition;
+  readonly allowMethods?: string | DynamicDefinition;
 
   /** Configures the `Access-Control-Allow-Headers` header.
    *
    * @default `Access-Control-Request-Headers` field value
    */
-  allowHeaders?: string | DynamicDefinition;
+  readonly allowHeaders?: string | DynamicDefinition;
 
-  /** Configures the `Access-Control-Expose-Headers` header.
-   */
-  exposeHeaders?: string;
+  /** Configures the `Access-Control-Expose-Headers` header. */
+  readonly exposeHeaders?: string;
 
-  /** Configures the `Access-Control-Allow-Credentials` header.
-   */
-  allowCredentials?: string | true;
+  /** Configures the `Access-Control-Allow-Credentials` header. */
+  readonly allowCredentials?: string | true;
 
-  /** Configures the `Access-Control-Max-Age` header.
-   */
-  maxAge?: string | number;
+  /** Configures the `Access-Control-Max-Age` header. */
+  readonly maxAge?: string | number;
 
-  debug?: boolean;
+  readonly debug?: boolean;
 }
 
 type DynamicDefinition<T = string> = (
