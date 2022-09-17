@@ -77,23 +77,23 @@ export interface CorsOptions {
    *
    * @defaultValue {@link defaultPreflightResponse}
    */
-  readonly onPreflightRequest?: (
+  readonly onPreflight?: (
     headers: Headers,
     context: CorsContext,
   ) => Response | Promise<Response>;
 
-  /** Event handler called on simple request.
+  /** Event handler called on cross origin request expect preflight request.
    * Returns the actual `Response`.
    *
    * @defaultValue {@link defaultSimpleResponse}
    */
-  readonly onSimpleRequest?: (
+  readonly onCrossOrigin?: (
     headers: Headers,
     context: CorsContext,
   ) => Promise<Response> | Response;
 }
 
-const defaultPreflightResponse: Required<CorsOptions>["onPreflightRequest"] = (
+const defaultPreflightResponse: Required<CorsOptions>["onPreflight"] = (
   headers,
 ) => {
   const status = Status.NoContent;
@@ -102,18 +102,19 @@ const defaultPreflightResponse: Required<CorsOptions>["onPreflightRequest"] = (
   return new Response(null, { headers, status, statusText });
 };
 
-const defaultSimpleResponse: Required<CorsOptions>["onSimpleRequest"] = async (
-  headers,
-  { request, handler },
-) => {
-  const res = await handler(request);
-  headers = mergeHeaders(headers, res.headers);
-
-  return new Response(res.body, {
-    ...res,
+const defaultCrossOriginResponse: Required<CorsOptions>["onCrossOrigin"] =
+  async (
     headers,
-  });
-};
+    { request, handler },
+  ) => {
+    const res = await handler(request);
+    headers = mergeHeaders(headers, res.headers);
+
+    return new Response(res.body, {
+      ...res,
+      headers,
+    });
+  };
 
 export function withCors(handler: Handler, {
   maxAge,
@@ -122,8 +123,8 @@ export function withCors(handler: Handler, {
   allowMethods,
   exposeHeaders,
   allowOrigin,
-  onPreflightRequest = defaultPreflightResponse,
-  onSimpleRequest = defaultSimpleResponse,
+  onPreflight = defaultPreflightResponse,
+  onCrossOrigin = defaultCrossOriginResponse,
 }: CorsOptions = {}): Handler {
   return (req) => {
     const result = validateCorsRequest(req.clone());
@@ -154,7 +155,7 @@ export function withCors(handler: Handler, {
       );
       const headers = new Headers(headerInit);
 
-      return onPreflightRequest(headers, context);
+      return onPreflight(headers, context);
     }
 
     const headerInit = resolveSimpleRequestOptions(
@@ -168,7 +169,7 @@ export function withCors(handler: Handler, {
     );
     const headers = new Headers(headerInit);
 
-    return onSimpleRequest(headers, context);
+    return onCrossOrigin(headers, context);
   };
 }
 

@@ -684,7 +684,7 @@ it(
   "should change default simple response",
   async () => {
     const handler = withCors(() => new Response(), {
-      onSimpleRequest: (_, { handler, request }) => {
+      onCrossOrigin: (_, { handler, request }) => {
         return handler(request);
       },
     });
@@ -991,7 +991,7 @@ describe("preflight request", () => {
     "should change default preflight response",
     async () => {
       const handler = withCors(() => new Response(), {
-        onPreflightRequest: (headers) => {
+        onPreflight: (headers) => {
           return new Response(null, {
             headers,
             status: 200,
