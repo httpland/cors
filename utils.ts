@@ -23,8 +23,8 @@ export function isSameOriginRequest(req: Request): boolean {
 export function isPreflightRequest(req: Request): boolean {
   return isCorsRequest(req) &&
     req.method === "OPTIONS" &&
-    req.headers.has("Access-Control-Request-Method") &&
-    req.headers.has("Access-Control-Request-Headers");
+    req.headers.has("access-control-request-method") &&
+    req.headers.has("access-control-request-headers");
 }
 
 /** Validate the request is cors request or not. */
@@ -54,10 +54,10 @@ export function validatePreflightRequest(
       method: req.method as "OPTIONS",
       headers: {
         accessControlRequestMethod: req.headers.get(
-          "Access-Control-Request-Method",
+          "access-control-request-method",
         )!,
         accessControlRequestHeaders: req.headers.get(
-          "Access-Control-Request-Headers",
+          "access-control-request-headers",
         )!,
       },
     }];
