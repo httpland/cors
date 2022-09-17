@@ -1,7 +1,7 @@
 /** Whether the request is cors request or not.
  * Living Standard - Fetch, 3.2.2 HTTP requests
  */
-export function isCorsRequest(req: Request): boolean {
+export function isCrossOriginRequest(req: Request): boolean {
   return req.headers.has("origin") && !isSameOriginRequest(req);
 }
 
@@ -21,7 +21,7 @@ export function isSameOriginRequest(req: Request): boolean {
  * Living Standard - Fetch, 3.2.2 HTTP requests
  */
 export function isPreflightRequest(req: Request): boolean {
-  return isCorsRequest(req) &&
+  return isCrossOriginRequest(req) &&
     req.method === "OPTIONS" &&
     req.headers.has("access-control-request-method") &&
     req.headers.has("access-control-request-headers");
@@ -33,7 +33,7 @@ export function validateCorsRequest(
 ): [valid: true, requestInit: { headers: { origin: string } }] | [
   valid: false,
 ] {
-  if (isCorsRequest(req)) {
+  if (isCrossOriginRequest(req)) {
     return [true, { headers: { origin: req.headers.get("origin")! } }];
   }
   return [false];

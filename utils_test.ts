@@ -1,8 +1,8 @@
-import { isCorsRequest, isPreflightRequest } from "./utils.ts";
+import { isCrossOriginRequest, isPreflightRequest } from "./utils.ts";
 import { describe, expect, Fn, it } from "./dev_deps.ts";
 
-Deno.test("isCorsRequest should pass", () => {
-  const table: Fn<typeof isCorsRequest>[] = [
+Deno.test("isCrossOriginRequest should pass", () => {
+  const table: Fn<typeof isCrossOriginRequest>[] = [
     [new Request("http://localhost"), false],
     [
       new Request("http://localhost", {
@@ -23,7 +23,7 @@ Deno.test("isCorsRequest should pass", () => {
   ];
 
   table.forEach(([req, result]) => {
-    expect(isCorsRequest(req)).toEqual(result);
+    expect(isCrossOriginRequest(req)).toEqual(result);
   });
 });
 

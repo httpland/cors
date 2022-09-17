@@ -4,4 +4,4 @@ export {
   type RuntimeContext,
   withCors,
 } from "./cors.ts";
-export { isCorsRequest, isPreflightRequest } from "./utils.ts";
+export { isCrossOriginRequest, isPreflightRequest } from "./utils.ts";
