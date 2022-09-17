@@ -11,13 +11,24 @@ import {
   ValueOf,
 } from "./deps.ts";
 
+/** Context of dynamic definition. */
+export interface DynamicContext {
+  /** Cloned `Request` object. */
+  readonly request: Request;
+
+  /** Cloned `Response` object. */
+  readonly response: Response;
+}
+
 /** CORS options. */
 export interface CorsOptions {
   /** Configures the `Access-Control-Allow-Origin` header.
    *
    * @default `Origin` field value
    */
-  readonly allowOrigin?: string | ((origin: string) => string);
+  readonly allowOrigin?:
+    | string
+    | ((origin: string, context: DynamicContext) => string);
 
   /** Configures the `Access-Control-Allow-Methods` header.
    *
@@ -25,7 +36,7 @@ export interface CorsOptions {
    */
   readonly allowMethods?:
     | string
-    | ((accessControlAllowMethod: string) => string);
+    | ((accessControlAllowMethod: string, context: DynamicContext) => string);
 
   /** Configures the `Access-Control-Allow-Headers` header.
    *
@@ -33,7 +44,10 @@ export interface CorsOptions {
    */
   readonly allowHeaders?:
     | string
-    | ((accessControlRequestHeaders: string) => string);
+    | ((
+      accessControlRequestHeaders: string,
+      context: DynamicContext,
+    ) => string);
 
   /** Configures the `Access-Control-Expose-Headers` header. */
   readonly exposeHeaders?: string;
@@ -54,20 +68,28 @@ export function withCors(handler: Handler, {
   allowOrigin,
 }: CorsOptions = {}): Handler {
   return async (req) => {
-    const result = validateCorsRequest(req);
+    const result = validateCorsRequest(req.clone());
 
-    if (!result[0]) return handler(req);
+    if (!result[0]) return handler(req.clone());
 
     const { origin } = result[1].headers;
-    const [isPreflight, resInit] = validatePreflightRequest(req);
-    const res = await handler(req);
+    const [isPreflight, resInit] = validatePreflightRequest(req.clone());
+    const res = await handler(req.clone());
+    const context: DynamicContext = {
+      request: req.clone(),
+      response: res.clone(),
+    };
 
     if (!isPreflight) {
-      const headerInit = resolveSimpleRequestOptions({
-        allowCredentials,
-        exposeHeaders,
-        allowOrigin,
-      }, { origin });
+      const headerInit = resolveSimpleRequestOptions(
+        {
+          allowCredentials,
+          exposeHeaders,
+          allowOrigin,
+        },
+        { origin },
+        context,
+      );
 
       const headers = mergeHeaders(new Headers(headerInit), res.headers);
       return new Response(res.body, {
@@ -91,7 +113,7 @@ export function withCors(handler: Handler, {
       origin,
       accessControlRequestHeaders,
       accessControlRequestMethod,
-    });
+    }, context);
     const headers = mergeHeaders(new Headers(headerInit), res.headers);
     const status = Status.NoContent;
 
@@ -121,16 +143,19 @@ function resolvePreflightOptions(
     PreflightDefinition,
   { origin, accessControlRequestHeaders, accessControlRequestMethod }:
     PreflightHeaders,
+  context: DynamicContext,
 ): Record<string, string> {
-  allowOrigin = resolveDynamicDefinition(origin, allowOrigin);
+  allowOrigin = resolveDynamicDefinition(origin, allowOrigin, context);
   allowCredentials = resolveStaticDefinition(allowCredentials);
   allowHeaders = resolveDynamicDefinition(
     accessControlRequestHeaders,
     allowHeaders,
+    context,
   );
   allowMethods = resolveDynamicDefinition(
     accessControlRequestMethod,
     allowMethods,
+    context,
   );
   maxAge = resolveStaticDefinition(maxAge);
 
@@ -178,8 +203,9 @@ interface PreflightHeaders {
 function resolveSimpleRequestOptions(
   { allowOrigin, allowCredentials, exposeHeaders }: SimpleRequestDefinition,
   { origin }: Pick<PreflightHeaders, "origin">,
+  context: DynamicContext,
 ): Record<string, string> {
-  allowOrigin = resolveDynamicDefinition(origin, allowOrigin);
+  allowOrigin = resolveDynamicDefinition(origin, allowOrigin, context);
   allowCredentials = resolveStaticDefinition(allowCredentials);
   exposeHeaders = resolveStaticDefinition(exposeHeaders);
 
@@ -221,9 +247,10 @@ type OptionalDefinition = Pick<
 function resolveDynamicDefinition(
   fieldValue: string,
   definition: ValueOf<RequiredDefinition>,
+  context: DynamicContext,
 ): string {
   if (isFunction(definition)) {
-    return definition(fieldValue);
+    return definition(fieldValue, context);
   }
 
   return definition ?? fieldValue;

@@ -1,6 +1,6 @@
 import { withCors } from "./cors.ts";
 import { Status, STATUS_TEXT } from "./deps.ts";
-import { describe, expect, it } from "./dev_deps.ts";
+import { describe, expect, fn, it } from "./dev_deps.ts";
 
 const describeTests = describe("withCors");
 
@@ -281,6 +281,35 @@ it(
         },
       }),
     );
+  },
+);
+
+it(
+  describeTests,
+  "should pass context to dynamic definition",
+  async () => {
+    const mock = fn();
+    const handler = withCors(() =>
+      new Response(null, {
+        status: 404,
+      }), {
+      allowOrigin: (origin, context) => {
+        mock(context.response.status);
+        mock(context.request.method);
+        return origin;
+      },
+    });
+    await handler(
+      new Request("http://localhost/", {
+        headers: {
+          origin: "http://test.com",
+        },
+        method: "POST",
+      }),
+    );
+
+    expect(mock).toHaveBeenCalledWith(404);
+    expect(mock).toHaveBeenCalledWith("POST");
   },
 );
 
