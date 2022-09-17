@@ -1,6 +1,375 @@
-import { withCors } from "./cors.ts";
+import {
+  resolvePreflightOptions,
+  resolveSimpleRequestOptions,
+  withCors,
+} from "./cors.ts";
 import { Status, STATUS_TEXT } from "./deps.ts";
-import { describe, expect, fn, it } from "./dev_deps.ts";
+import { describe, expect, Fn, fn, it } from "./dev_deps.ts";
+
+Deno.test("resolveSimpleRequestOptions should pass", () => {
+  const context = {
+    request: new Request("http://localhost"),
+    response: new Response(),
+  };
+  const table: Fn<typeof resolveSimpleRequestOptions>[] = [
+    [{}, { origin: "" }, context, {
+      "access-control-allow-origin": "",
+      vary: "origin",
+    }],
+    [{}, { origin: "*" }, context, {
+      "access-control-allow-origin": "*",
+      vary: "origin",
+    }],
+    [{ allowOrigin: "null" }, { origin: "*" }, context, {
+      "access-control-allow-origin": "null",
+      vary: "origin",
+    }],
+    [{ allowOrigin: undefined }, { origin: "*" }, context, {
+      "access-control-allow-origin": "*",
+      vary: "origin",
+    }],
+    [{ allowOrigin: () => undefined }, { origin: "*" }, context, {
+      "access-control-allow-origin": "*",
+      vary: "origin",
+    }],
+    [{ allowOrigin: () => "null" }, { origin: "*" }, context, {
+      "access-control-allow-origin": "null",
+      vary: "origin",
+    }],
+    [{ allowOrigin: (origin) => origin }, { origin: "*" }, context, {
+      "access-control-allow-origin": "*",
+      vary: "origin",
+    }],
+    [
+      { allowOrigin: (_, { request }) => new URL(request.url).origin },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "http://localhost",
+        vary: "origin",
+      },
+    ],
+    [
+      { allowCredentials: true },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-credentials": "true",
+        vary: "origin",
+      },
+    ],
+    [
+      { allowCredentials: undefined },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        vary: "origin",
+      },
+    ],
+    [
+      { allowCredentials: () => undefined },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        vary: "origin",
+      },
+    ],
+    [
+      { allowCredentials: "null" },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-credentials": "null",
+        vary: "origin",
+      },
+    ],
+    [
+      { allowCredentials: () => true },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-credentials": "true",
+        vary: "origin",
+      },
+    ],
+    [
+      { exposeHeaders: "content-type" },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "content-type",
+        vary: "origin",
+      },
+    ],
+    [
+      { exposeHeaders: () => "x-custom" },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-custom",
+        vary: "origin",
+      },
+    ],
+    [
+      { exposeHeaders: () => undefined },
+      { origin: "*" },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        vary: "origin",
+      },
+    ],
+  ];
+
+  table.forEach(([definitions, headers, context, expected]) => {
+    expect(resolveSimpleRequestOptions(definitions, headers, context)).toEqual(
+      expected,
+    );
+  });
+});
+
+Deno.test("resolvePreflightOptions should pass", () => {
+  const context = {
+    request: new Request("http://localhost"),
+    response: new Response(),
+  };
+  const origin = "";
+  const accessControlRequestHeaders = "";
+  const accessControlRequestMethod = "";
+  const table: Fn<typeof resolvePreflightOptions>[] = [
+    [
+      {},
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {},
+      {
+        origin: "*",
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {},
+      {
+        origin,
+        accessControlRequestHeaders: "content-type",
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "content-type",
+        "access-control-allow-methods": "",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {},
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod: "POST",
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "POST",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        allowOrigin: "*",
+        allowHeaders: "content-type, x-custom",
+        allowMethods: "PUT",
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "content-type, x-custom",
+        "access-control-allow-methods": "PUT",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        allowOrigin: () => "*",
+        allowHeaders: () => "content-type, x-custom",
+        allowMethods: () => "PUT",
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "*",
+        "access-control-allow-headers": "content-type, x-custom",
+        "access-control-allow-methods": "PUT",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        allowOrigin: () => undefined,
+        allowHeaders: () => undefined,
+        allowMethods: () => undefined,
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        maxAge: "100",
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        "access-control-max-age": "100",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        maxAge: 1000,
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        "access-control-max-age": "1000",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        maxAge: () => 1000,
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        "access-control-max-age": "1000",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        maxAge: () => undefined,
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+    [
+      {
+        allowCredentials: true,
+      },
+      {
+        origin,
+        accessControlRequestHeaders,
+        accessControlRequestMethod,
+      },
+      context,
+      {
+        "access-control-allow-origin": "",
+        "access-control-allow-headers": "",
+        "access-control-allow-methods": "",
+        "access-control-allow-credentials": "true",
+        vary:
+          "origin, access-control-request-headers, access-control-request-methods",
+      },
+    ],
+  ];
+
+  table.forEach(([definitions, headers, context, expected]) => {
+    expect(resolvePreflightOptions(definitions, headers, context)).toEqual(
+      expected,
+    );
+  });
+});
 
 const describeTests = describe("withCors");
 

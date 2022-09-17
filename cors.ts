@@ -28,7 +28,7 @@ export interface CorsOptions {
    */
   readonly allowOrigin?:
     | string
-    | ((origin: string, context: DynamicContext) => string);
+    | ((origin: string, context: DynamicContext) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Methods` header.
    *
@@ -36,7 +36,10 @@ export interface CorsOptions {
    */
   readonly allowMethods?:
     | string
-    | ((accessControlAllowMethod: string, context: DynamicContext) => string);
+    | ((
+      accessControlAllowMethod: string,
+      context: DynamicContext,
+    ) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Headers` header.
    *
@@ -47,16 +50,24 @@ export interface CorsOptions {
     | ((
       accessControlRequestHeaders: string,
       context: DynamicContext,
-    ) => string);
+    ) => string | undefined);
 
   /** Configures the `Access-Control-Expose-Headers` header. */
-  readonly exposeHeaders?: string;
+  readonly exposeHeaders?:
+    | string
+    | ((context: DynamicContext) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Credentials` header. */
-  readonly allowCredentials?: string | true;
+  readonly allowCredentials?:
+    | string
+    | true
+    | ((context: DynamicContext) => string | true | undefined);
 
   /** Configures the `Access-Control-Max-Age` header. */
-  readonly maxAge?: string | number;
+  readonly maxAge?:
+    | string
+    | number
+    | ((context: DynamicContext) => string | number | undefined);
 }
 
 export function withCors(handler: Handler, {
@@ -138,26 +149,26 @@ type SimpleRequestDefinition = Pick<
   "allowOrigin" | "allowCredentials" | "exposeHeaders"
 >;
 
-function resolvePreflightOptions(
+export function resolvePreflightOptions(
   { allowOrigin, allowCredentials, allowHeaders, allowMethods, maxAge }:
     PreflightDefinition,
   { origin, accessControlRequestHeaders, accessControlRequestMethod }:
     PreflightHeaders,
   context: DynamicContext,
 ): Record<string, string> {
-  allowOrigin = resolveDynamicDefinition(origin, allowOrigin, context);
-  allowCredentials = resolveStaticDefinition(allowCredentials);
-  allowHeaders = resolveDynamicDefinition(
+  allowOrigin = resolveRequiredDefinition(origin, allowOrigin, context);
+  allowCredentials = resolveOptionalDefinition(allowCredentials, context);
+  allowHeaders = resolveRequiredDefinition(
     accessControlRequestHeaders,
     allowHeaders,
     context,
   );
-  allowMethods = resolveDynamicDefinition(
+  allowMethods = resolveRequiredDefinition(
     accessControlRequestMethod,
     allowMethods,
     context,
   );
-  maxAge = resolveStaticDefinition(maxAge);
+  maxAge = resolveOptionalDefinition(maxAge, context);
 
   const maxAgeSet = ["access-control-max-age", maxAge] as const;
   const credentialsSet = [
@@ -200,14 +211,14 @@ interface PreflightHeaders {
   readonly accessControlRequestHeaders: string;
 }
 
-function resolveSimpleRequestOptions(
+export function resolveSimpleRequestOptions(
   { allowOrigin, allowCredentials, exposeHeaders }: SimpleRequestDefinition,
   { origin }: Pick<PreflightHeaders, "origin">,
   context: DynamicContext,
 ): Record<string, string> {
-  allowOrigin = resolveDynamicDefinition(origin, allowOrigin, context);
-  allowCredentials = resolveStaticDefinition(allowCredentials);
-  exposeHeaders = resolveStaticDefinition(exposeHeaders);
+  allowOrigin = resolveRequiredDefinition(origin, allowOrigin, context);
+  allowCredentials = resolveOptionalDefinition(allowCredentials, context);
+  exposeHeaders = resolveOptionalDefinition(exposeHeaders, context);
 
   const originSet = ["access-control-allow-origin", allowOrigin] as const;
   const exposeHeadersSet = [
@@ -244,20 +255,30 @@ type OptionalDefinition = Pick<
   "allowCredentials" | "exposeHeaders" | "maxAge"
 >;
 
-function resolveDynamicDefinition(
+function resolveRequiredDefinition(
   fieldValue: string,
   definition: ValueOf<RequiredDefinition>,
   context: DynamicContext,
 ): string {
-  if (isFunction(definition)) {
-    return definition(fieldValue, context);
-  }
+  const result = isFunction(definition)
+    ? definition(fieldValue, context)
+    : definition;
 
-  return definition ?? fieldValue;
+  return result ?? fieldValue;
+}
+
+function resolveOptionalDefinition(
+  definition: ValueOf<OptionalDefinition>,
+  context: DynamicContext,
+): string | undefined {
+  const result = isFunction(definition) ? definition(context) : definition;
+
+  return resolveStaticDefinition(result);
 }
 
 function resolveStaticDefinition(
-  definition: ValueOf<OptionalDefinition>,
+  // deno-lint-ignore ban-types
+  definition: Exclude<ValueOf<CorsOptions>, Function>,
 ): string | undefined {
   if (isUndefined(definition)) return;
 
