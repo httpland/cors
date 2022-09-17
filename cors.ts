@@ -15,9 +15,6 @@ import {
 export interface DynamicContext {
   /** Cloned `Request` object. */
   readonly request: Request;
-
-  /** Cloned `Response` object. */
-  readonly response: Response;
 }
 
 /** CORS options. */
@@ -85,52 +82,46 @@ export function withCors(handler: Handler, {
 
     const { origin } = result[1].headers;
     const [isPreflight, resInit] = validatePreflightRequest(req.clone());
-    const res = await handler(req.clone());
     const context: DynamicContext = {
       request: req.clone(),
-      response: res.clone(),
     };
 
-    if (!isPreflight) {
-      const headerInit = resolveSimpleRequestOptions(
-        {
-          allowCredentials,
-          exposeHeaders,
-          allowOrigin,
-        },
-        { origin },
-        context,
-      );
+    if (isPreflight) {
+      const headerInit = resolvePreflightOptions({
+        maxAge,
+        allowCredentials,
+        allowHeaders,
+        allowMethods,
+        allowOrigin,
+      }, {
+        origin,
+        ...resInit.headers,
+      }, context);
 
-      const headers = mergeHeaders(new Headers(headerInit), res.headers);
-      return new Response(res.body, {
-        ...res,
+      const headers = new Headers(headerInit);
+      const status = Status.NoContent;
+
+      return new Response(null, {
+        status,
+        statusText: STATUS_TEXT[status],
         headers,
       });
     }
 
-    const {
-      accessControlRequestHeaders,
-      accessControlRequestMethod,
-    } = resInit.headers;
-
-    const headerInit = resolvePreflightOptions({
-      maxAge,
-      allowCredentials,
-      allowHeaders,
-      allowMethods,
-      allowOrigin,
-    }, {
-      origin,
-      accessControlRequestHeaders,
-      accessControlRequestMethod,
-    }, context);
+    const headerInit = resolveSimpleRequestOptions(
+      {
+        allowCredentials,
+        exposeHeaders,
+        allowOrigin,
+      },
+      { origin },
+      context,
+    );
+    const res = await handler(req.clone());
     const headers = mergeHeaders(new Headers(headerInit), res.headers);
-    const status = Status.NoContent;
 
-    return new Response(null, {
-      status,
-      statusText: STATUS_TEXT[status],
+    return new Response(res.body, {
+      ...res,
       headers,
     });
   };

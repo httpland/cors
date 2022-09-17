@@ -663,7 +663,6 @@ it(
         status: 404,
       }), {
       allowOrigin: (origin, context) => {
-        mock(context.response.status);
         mock(context.request.method);
         return origin;
       },
@@ -677,12 +676,35 @@ it(
       }),
     );
 
-    expect(mock).toHaveBeenCalledWith(404);
     expect(mock).toHaveBeenCalledWith("POST");
   },
 );
 
 describe("preflight request", () => {
+  it(
+    describeTests,
+    "should not call handler when the request is preflight",
+    async () => {
+      const mock = fn();
+      const handler = withCors(() => {
+        mock();
+        return new Response();
+      });
+      await handler(
+        new Request("http://localhost/", {
+          headers: {
+            origin: "http://test.com",
+            "Access-Control-Request-Method": "POST , OPTIONS",
+            "Access-Control-Request-Headers": "",
+          },
+          method: "OPTIONS",
+        }),
+      );
+
+      expect(mock).not.toHaveBeenCalled();
+    },
+  );
+
   it(
     "should return preflight response when the request is preflight request",
     async () => {
