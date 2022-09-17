@@ -52,7 +52,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -84,7 +84,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com,*",
           hoge: "huga",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -111,7 +111,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "*",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -139,7 +139,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-allow-credentials": "true",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -167,7 +167,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-allow-credentials": "true",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -195,7 +195,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-expose-headers": "100",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -223,7 +223,7 @@ it(
         headers: {
           "access-control-allow-origin": "http://test.com",
           "access-control-expose-headers": "*",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -250,7 +250,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -277,7 +277,7 @@ it(
         status: Status.OK,
         headers: {
           "access-control-allow-origin": "http://test.com",
-          vary: "Origin",
+          vary: "origin",
         },
       }),
     );
@@ -309,7 +309,7 @@ describe("preflight request", () => {
             "access-control-allow-headers": "",
             "access-control-allow-methods": "POST , OPTIONS",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -340,7 +340,7 @@ describe("preflight request", () => {
             "access-control-allow-headers": "content-type",
             "access-control-allow-methods": "",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -373,7 +373,7 @@ describe("preflight request", () => {
             "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -406,7 +406,7 @@ describe("preflight request", () => {
             "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -439,7 +439,7 @@ describe("preflight request", () => {
             "access-control-allow-methods": "TEST",
             "access-control-allow-origin": "http://test.com",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -472,7 +472,7 @@ describe("preflight request", () => {
             "access-control-allow-methods": "",
             "access-control-allow-origin": "*",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -505,7 +505,7 @@ describe("preflight request", () => {
             "access-control-allow-methods": "",
             "access-control-allow-origin": "http://test.com",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
@@ -539,7 +539,7 @@ describe("preflight request", () => {
             "access-control-allow-origin": "http://test.com",
             "access-control-max-age": "100",
             "vary":
-              "Origin, Access-Control-Request-Methods, Access-Control-Request-Headers",
+              "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
       );
