@@ -1,17 +1,17 @@
 import {
+  resolveCorsRequestOptions,
   resolvePreflightOptions,
-  resolveSimpleRequestOptions,
   withCors,
 } from "./cors.ts";
 import { Status, STATUS_TEXT } from "./deps.ts";
 import { describe, expect, Fn, fn, it } from "./dev_deps.ts";
 
-Deno.test("resolveSimpleRequestOptions should pass", () => {
+Deno.test("resolveCorsRequestOptions should pass", () => {
   const context = {
     request: new Request("http://localhost"),
     response: new Response(),
   };
-  const table: Fn<typeof resolveSimpleRequestOptions>[] = [
+  const table: Fn<typeof resolveCorsRequestOptions>[] = [
     [{}, { origin: "" }, context, {
       "access-control-allow-origin": "",
       vary: "origin",
@@ -129,7 +129,7 @@ Deno.test("resolveSimpleRequestOptions should pass", () => {
   ];
 
   table.forEach(([definitions, headers, context, expected]) => {
-    expect(resolveSimpleRequestOptions(definitions, headers, context)).toEqual(
+    expect(resolveCorsRequestOptions(definitions, headers, context)).toEqual(
       expected,
     );
   });

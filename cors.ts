@@ -116,6 +116,19 @@ const defaultCrossOriginResponse: Required<CorsOptions>["onCrossOrigin"] =
     });
   };
 
+/** Adds CORS functionality to the handler. And it returns a new handler.
+ *
+ * ```ts
+ * import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+ * import { serve } from "https://deno.land/std@$VERSION/http/mod.ts";
+ *
+ * function handler(req: Request): Response {
+ *   return new Response("Hello");
+ * }
+ *
+ * await serve(withCors(handler));
+ * ```
+ */
 export function withCors(handler: Handler, {
   maxAge,
   allowCredentials,
@@ -158,7 +171,7 @@ export function withCors(handler: Handler, {
       return onPreflight(headers, context);
     }
 
-    const headerInit = resolveSimpleRequestOptions(
+    const headerInit = resolveCorsRequestOptions(
       {
         allowCredentials,
         exposeHeaders,
@@ -181,7 +194,7 @@ type PreflightDefinition = Pick<
   | "allowCredentials"
   | "maxAge"
 >;
-type SimpleRequestDefinition = Pick<
+type CorsRequestDefinition = Pick<
   CorsOptions,
   "allowOrigin" | "allowCredentials" | "exposeHeaders"
 >;
@@ -248,8 +261,8 @@ interface PreflightHeaders {
   readonly accessControlRequestHeaders: string;
 }
 
-export function resolveSimpleRequestOptions(
-  { allowOrigin, allowCredentials, exposeHeaders }: SimpleRequestDefinition,
+export function resolveCorsRequestOptions(
+  { allowOrigin, allowCredentials, exposeHeaders }: CorsRequestDefinition,
   { origin }: Pick<PreflightHeaders, "origin">,
   context: RuntimeContext,
 ): Record<string, string> {
