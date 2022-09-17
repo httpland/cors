@@ -11,10 +11,16 @@ import {
   ValueOf,
 } from "./deps.ts";
 
-/** Context of dynamic definition. */
-export interface DynamicContext {
+/** Context of runtime data. */
+export interface RuntimeContext {
   /** Cloned `Request` object. */
   readonly request: Request;
+}
+
+/** Context of all data. */
+export interface CorsContext extends RuntimeContext {
+  /** Actual handler. */
+  readonly handler: Handler;
 }
 
 /** CORS options. */
@@ -25,7 +31,7 @@ export interface CorsOptions {
    */
   readonly allowOrigin?:
     | string
-    | ((origin: string, context: DynamicContext) => string | undefined);
+    | ((origin: string, context: RuntimeContext) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Methods` header.
    *
@@ -35,7 +41,7 @@ export interface CorsOptions {
     | string
     | ((
       accessControlAllowMethod: string,
-      context: DynamicContext,
+      context: RuntimeContext,
     ) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Headers` header.
@@ -46,26 +52,68 @@ export interface CorsOptions {
     | string
     | ((
       accessControlRequestHeaders: string,
-      context: DynamicContext,
+      context: RuntimeContext,
     ) => string | undefined);
 
   /** Configures the `Access-Control-Expose-Headers` header. */
   readonly exposeHeaders?:
     | string
-    | ((context: DynamicContext) => string | undefined);
+    | ((context: RuntimeContext) => string | undefined);
 
   /** Configures the `Access-Control-Allow-Credentials` header. */
   readonly allowCredentials?:
     | string
     | true
-    | ((context: DynamicContext) => string | true | undefined);
+    | ((context: RuntimeContext) => string | true | undefined);
 
   /** Configures the `Access-Control-Max-Age` header. */
   readonly maxAge?:
     | string
     | number
-    | ((context: DynamicContext) => string | number | undefined);
+    | ((context: RuntimeContext) => string | number | undefined);
+
+  /** Event handler called on preflight request.
+   * Returns the actual `Response`.
+   *
+   * @defaultValue {@link defaultPreflightResponse}
+   */
+  readonly onPreflightRequest?: (
+    headers: Headers,
+    context: CorsContext,
+  ) => Response | Promise<Response>;
+
+  /** Event handler called on simple request.
+   * Returns the actual `Response`.
+   *
+   * @defaultValue {@link defaultSimpleResponse}
+   */
+  readonly onSimpleRequest?: (
+    headers: Headers,
+    context: CorsContext,
+  ) => Promise<Response> | Response;
 }
+
+const defaultPreflightResponse: Required<CorsOptions>["onPreflightRequest"] = (
+  headers,
+) => {
+  const status = Status.NoContent;
+  const statusText = STATUS_TEXT[status];
+
+  return new Response(null, { headers, status, statusText });
+};
+
+const defaultSimpleResponse: Required<CorsOptions>["onSimpleRequest"] = async (
+  headers,
+  { request, handler },
+) => {
+  const res = await handler(request);
+  headers = mergeHeaders(headers, res.headers);
+
+  return new Response(res.body, {
+    ...res,
+    headers,
+  });
+};
 
 export function withCors(handler: Handler, {
   maxAge,
@@ -74,38 +122,39 @@ export function withCors(handler: Handler, {
   allowMethods,
   exposeHeaders,
   allowOrigin,
+  onPreflightRequest = defaultPreflightResponse,
+  onSimpleRequest = defaultSimpleResponse,
 }: CorsOptions = {}): Handler {
-  return async (req) => {
+  return (req) => {
     const result = validateCorsRequest(req.clone());
 
     if (!result[0]) return handler(req.clone());
 
     const { origin } = result[1].headers;
     const [isPreflight, resInit] = validatePreflightRequest(req.clone());
-    const context: DynamicContext = {
+    const runtimeContext: RuntimeContext = {
       request: req.clone(),
+    };
+    const context: CorsContext = {
+      request: req.clone(),
+      handler,
     };
 
     if (isPreflight) {
-      const headerInit = resolvePreflightOptions({
-        maxAge,
-        allowCredentials,
-        allowHeaders,
-        allowMethods,
-        allowOrigin,
-      }, {
-        origin,
-        ...resInit.headers,
-      }, context);
-
+      const headerInit = resolvePreflightOptions(
+        {
+          maxAge,
+          allowCredentials,
+          allowHeaders,
+          allowMethods,
+          allowOrigin,
+        },
+        { origin, ...resInit.headers },
+        runtimeContext,
+      );
       const headers = new Headers(headerInit);
-      const status = Status.NoContent;
 
-      return new Response(null, {
-        status,
-        statusText: STATUS_TEXT[status],
-        headers,
-      });
+      return onPreflightRequest(headers, context);
     }
 
     const headerInit = resolveSimpleRequestOptions(
@@ -115,15 +164,11 @@ export function withCors(handler: Handler, {
         allowOrigin,
       },
       { origin },
-      context,
+      runtimeContext,
     );
-    const res = await handler(req.clone());
-    const headers = mergeHeaders(new Headers(headerInit), res.headers);
+    const headers = new Headers(headerInit);
 
-    return new Response(res.body, {
-      ...res,
-      headers,
-    });
+    return onSimpleRequest(headers, context);
   };
 }
 
@@ -145,7 +190,7 @@ export function resolvePreflightOptions(
     PreflightDefinition,
   { origin, accessControlRequestHeaders, accessControlRequestMethod }:
     PreflightHeaders,
-  context: DynamicContext,
+  context: RuntimeContext,
 ): Record<string, string> {
   allowOrigin = resolveRequiredDefinition(origin, allowOrigin, context);
   allowCredentials = resolveOptionalDefinition(allowCredentials, context);
@@ -205,7 +250,7 @@ interface PreflightHeaders {
 export function resolveSimpleRequestOptions(
   { allowOrigin, allowCredentials, exposeHeaders }: SimpleRequestDefinition,
   { origin }: Pick<PreflightHeaders, "origin">,
-  context: DynamicContext,
+  context: RuntimeContext,
 ): Record<string, string> {
   allowOrigin = resolveRequiredDefinition(origin, allowOrigin, context);
   allowCredentials = resolveOptionalDefinition(allowCredentials, context);
@@ -249,18 +294,18 @@ type OptionalDefinition = Pick<
 function resolveRequiredDefinition(
   fieldValue: string,
   definition: ValueOf<RequiredDefinition>,
-  context: DynamicContext,
+  context: RuntimeContext,
 ): string {
   const result = isFunction(definition)
     ? definition(fieldValue, context)
     : definition;
 
-  return result ?? fieldValue;
+  return resolveStaticDefinition(result) ?? fieldValue;
 }
 
 function resolveOptionalDefinition(
   definition: ValueOf<OptionalDefinition>,
-  context: DynamicContext,
+  context: RuntimeContext,
 ): string | undefined {
   const result = isFunction(definition) ? definition(context) : definition;
 

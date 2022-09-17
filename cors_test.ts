@@ -138,7 +138,6 @@ Deno.test("resolveSimpleRequestOptions should pass", () => {
 Deno.test("resolvePreflightOptions should pass", () => {
   const context = {
     request: new Request("http://localhost"),
-    response: new Response(),
   };
   const origin = "";
   const accessControlRequestHeaders = "";
@@ -680,6 +679,27 @@ it(
   },
 );
 
+it(
+  describeTests,
+  "should change default simple response",
+  async () => {
+    const handler = withCors(() => new Response(), {
+      onSimpleRequest: (_, { handler, request }) => {
+        return handler(request);
+      },
+    });
+    const res = await handler(
+      new Request("http://localhost/", {
+        headers: {
+          origin: "http://test.com",
+        },
+      }),
+    );
+
+    expect(res).toEqualResponse(new Response());
+  },
+);
+
 describe("preflight request", () => {
   it(
     describeTests,
@@ -959,6 +979,43 @@ describe("preflight request", () => {
             "access-control-allow-origin": "http://test.com",
             "access-control-max-age": "100",
             "vary":
+              "origin, access-control-request-headers, access-control-request-methods",
+          },
+        }),
+      );
+    },
+  );
+
+  it(
+    describeTests,
+    "should change default preflight response",
+    async () => {
+      const handler = withCors(() => new Response(), {
+        onPreflightRequest: (headers) => {
+          return new Response(null, {
+            headers,
+            status: 200,
+          });
+        },
+      });
+      const res = await handler(
+        new Request("http://localhost/", {
+          headers: {
+            origin: "http://test.com",
+            "Access-Control-Request-Method": "",
+            "Access-Control-Request-Headers": "",
+          },
+          method: "OPTIONS",
+        }),
+      );
+
+      expect(res).toEqualResponse(
+        new Response(null, {
+          headers: {
+            "access-control-allow-headers": "",
+            "access-control-allow-methods": "",
+            "access-control-allow-origin": "http://test.com",
+            vary:
               "origin, access-control-request-headers, access-control-request-methods",
           },
         }),
