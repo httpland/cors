@@ -1,3 +1,13 @@
+export interface CorsRequestHeaders {
+  readonly origin: string;
+}
+
+export interface PreflightRequestHeaders extends CorsRequestHeaders {
+  readonly accessControlRequestHeaders: string;
+
+  readonly accessControlRequestMethod: string;
+}
+
 /** Whether the request is cors request or not.
  * Living Standard - Fetch, 3.2.2 HTTP requests
  */
@@ -44,15 +54,13 @@ export function validatePreflightRequest(
   req: Request,
 ): [valid: true, requestInit: {
   method: "OPTIONS";
-  headers: {
-    accessControlRequestMethod: string;
-    accessControlRequestHeaders: string;
-  };
+  headers: PreflightRequestHeaders;
 }] | [valid: false] {
   if (isPreflightRequest(req)) {
     return [true, {
       method: req.method as "OPTIONS",
       headers: {
+        origin: req.headers.get("origin")!,
         accessControlRequestMethod: req.headers.get(
           "access-control-request-method",
         )!,
@@ -63,4 +71,8 @@ export function validatePreflightRequest(
     }];
   }
   return [false];
+}
+
+export function hasAccessControlAllowOrigin(headers: Headers): boolean {
+  return headers.has("access-control-allow-origin");
 }

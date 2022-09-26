@@ -1,7 +1,2 @@
-export {
-  type CorsContext,
-  type CorsOptions,
-  type RuntimeContext,
-  withCors,
-} from "./cors.ts";
+export { type HandlerOptions, withCors } from "./handlers.ts";
 export { isCrossOriginRequest, isPreflightRequest } from "./utils.ts";
