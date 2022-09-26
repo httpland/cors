@@ -6,11 +6,7 @@ import {
   Status,
   STATUS_TEXT,
 } from "./deps.ts";
-import {
-  hasAccessControlAllowOrigin,
-  validateCorsRequest,
-  validatePreflightRequest,
-} from "./utils.ts";
+import { validateCorsRequest, validatePreflightRequest } from "./utils.ts";
 
 interface SharedOptions {
   /** Configures the `Access-Control-Allow-Origin` header.
@@ -25,14 +21,23 @@ interface SharedOptions {
     | true;
 }
 
+/** CORS options. */
 export interface CorsOptions extends SharedOptions {
   /** Configures the `Access-Control-Expose-Headers` header. */
   readonly exposeHeaders?: string;
+
+  /** Called on cross origin request.
+   *
+   * @defaultValue {@link defaultOnCrossOrigin}
+   */
+  readonly onCrossOrigin?: (
+    headersInit: HeadersInit,
+    context: CorsContext,
+  ) => Response;
 }
 
+/** Preflight options. */
 export interface PreflightOptions extends SharedOptions {
-  readonly allowOrigin?: string;
-
   /** Configures the `Access-Control-Allow-Methods` header.
    *
    * @default `Access-Control-Request-Methods` field value
@@ -49,26 +54,35 @@ export interface PreflightOptions extends SharedOptions {
   readonly maxAge?:
     | string
     | number;
+
+  /** Called on preflight request.
+   *
+   * @defaultValue {@link defaultOnPreflight}
+   */
+  readonly onPreflight?: (
+    headersInit: HeadersInit,
+    context: RequestContext,
+  ) => Response;
 }
 
-export function preflightResponse(
-  req: Request,
-  { allowCredentials, allowOrigin, allowHeaders, allowMethods, maxAge }:
-    PreflightOptions,
-): Response | undefined {
-  const [valid, context] = validatePreflightRequest(req);
+/** CORS context. */
+export interface CorsContext extends RequestContext, ResponseContext {}
 
-  if (!valid) return;
+/** Request context. */
+export interface RequestContext {
+  /** Cloned `Request` object. */
+  request: Request;
+}
 
-  const { origin, accessControlRequestHeaders, accessControlRequestMethod } =
-    context.headers;
-  const headersInit = resolvePreflightResponseHeaders({
-    allowOrigin: allowOrigin ?? origin,
-    allowHeaders: allowHeaders ?? accessControlRequestHeaders,
-    allowMethods: allowMethods ?? accessControlRequestMethod,
-    maxAge,
-    allowCredentials,
-  });
+/** Response context. */
+export interface ResponseContext {
+  /** Cloned `Response` object. */
+  response: Response;
+}
+
+const defaultOnPreflight: Required<PreflightOptions>["onPreflight"] = (
+  headersInit,
+) => {
   const status = Status.NoContent;
 
   return new Response(null, {
@@ -76,60 +90,103 @@ export function preflightResponse(
     status,
     statusText: STATUS_TEXT[status],
   });
+};
+
+const defaultOnCrossOrigin: Required<CorsOptions>["onCrossOrigin"] = (
+  headerInit,
+  { response },
+) => {
+  const headers = mergeHeaders(new Headers(headerInit), response.headers);
+
+  return new Response(response.body, {
+    ...response,
+    headers,
+  });
+};
+
+/** Create preflight response from `Request` object.
+ * If the request is preflight request, return response for preflight.
+ */
+export function preflightResponse(
+  request: Request,
+  {
+    allowCredentials,
+    allowOrigin,
+    allowHeaders,
+    allowMethods,
+    maxAge,
+    onPreflight = defaultOnPreflight,
+  }: PreflightOptions,
+): Response | undefined {
+  const [valid, context] = validatePreflightRequest(request.clone());
+
+  if (!valid) return;
+
+  const { origin, accessControlRequestHeaders, accessControlRequestMethod } =
+    context.headers;
+  const headersInit = resolveRequiredPreflightOptions({
+    allowOrigin: allowOrigin ?? origin,
+    allowHeaders: allowHeaders ?? accessControlRequestHeaders,
+    allowMethods: allowMethods ?? accessControlRequestMethod,
+    maxAge,
+    allowCredentials,
+  });
+
+  return onPreflight(headersInit, { request: request.clone() });
 }
 
+/** Create CORS response from `Response` and `Request` object.
+ * Compute the CORS header from the `Request` and add it to the header of the `Response`.
+ */
 export function corsResponse(
-  req: Request,
-  res: Response,
-  { allowOrigin, allowCredentials, exposeHeaders }: CorsOptions,
+  request: Request,
+  response: Response,
+  {
+    allowOrigin,
+    allowCredentials,
+    exposeHeaders,
+    onCrossOrigin = defaultOnCrossOrigin,
+  }: CorsOptions,
 ): Response {
-  const [valid, requestInit] = validateCorsRequest(req);
+  const [valid, requestInit] = validateCorsRequest(request);
 
-  if (!valid || hasAccessControlAllowOrigin(res.headers)) return res;
+  if (!valid) return response;
 
-  const headerInit = resolveCorsResponseHeaders({
+  const headerInit = resolveRequiredCorsOptions({
     allowOrigin: allowOrigin ?? requestInit.headers.origin,
     allowCredentials,
     exposeHeaders,
   });
-  const headers = mergeHeaders(new Headers(headerInit), res.headers);
 
-  return new Response(res.body, {
-    ...res,
-    headers,
-  });
+  return onCrossOrigin(headerInit, { request, response });
 }
 
-function resolveCorsResponseHeaders(
-  { allowOrigin, allowCredentials, exposeHeaders }: CorsResponseHeaders,
+function resolveRequiredCorsOptions(
+  { allowOrigin, allowCredentials, exposeHeaders }: RequiredBy<
+    CorsOptions,
+    "allowOrigin"
+  >,
 ): HeadersInit {
   return {
     "access-control-allow-origin": allowOrigin,
-    "vary": "origin",
+    vary: "origin",
     ...resolveAllowCredentials(allowCredentials),
     ...resolveExposeHeaders(exposeHeaders),
   };
 }
 
-type PreflightResponseHeaders = RequiredBy<
-  PreflightOptions,
-  "allowOrigin" | "allowMethods" | "allowHeaders"
->;
-
-type CorsResponseHeaders = RequiredBy<
-  CorsOptions,
-  "allowOrigin"
->;
-
-function resolvePreflightResponseHeaders(
+function resolveRequiredPreflightOptions(
   { allowOrigin, allowHeaders, allowMethods, allowCredentials, maxAge }:
-    PreflightResponseHeaders,
-) {
+    RequiredBy<
+      PreflightOptions,
+      "allowOrigin" | "allowMethods" | "allowHeaders"
+    >,
+): HeadersInit {
   return {
     "access-control-allow-origin": allowOrigin,
     "access-control-allow-headers": allowHeaders,
     "access-control-allow-methods": allowMethods,
-    "vary":
+    vary:
       "origin, access-control-request-headers, access-control-request-method",
     ...resolveAllowCredentials(allowCredentials),
     ...resolveMaxAge(maxAge),
@@ -137,7 +194,7 @@ function resolvePreflightResponseHeaders(
 }
 
 function resolveAllowCredentials(
-  allowCredentials: string | true | undefined,
+  allowCredentials: SharedOptions["allowCredentials"],
 ): Nullable<
   { "access-control-allow-credentials": string }
 > {
@@ -149,7 +206,7 @@ function resolveAllowCredentials(
 }
 
 function resolveMaxAge(
-  maxAge: string | number | undefined,
+  maxAge: PreflightOptions["maxAge"],
 ): Nullable<{ "access-control-max-age": string }> {
   if (isUndefined(maxAge)) return;
 
@@ -159,7 +216,7 @@ function resolveMaxAge(
 }
 
 function resolveExposeHeaders(
-  exposeHeaders: string | undefined,
+  exposeHeaders: CorsOptions["exposeHeaders"],
 ): Nullable<{ "access-control-expose-headers": string }> {
   if (isUndefined(exposeHeaders)) return;
 

@@ -21,8 +21,20 @@ export function filterTruthy<T>(values: readonly T[]): NonNullable<T>[] {
   return values.filter(isTruthy) as NonNullable<T>[];
 }
 
-export type ValueOf<T> = T[keyof T];
-
 export type Nullable<T> = T | undefined | null;
 
-export type KeyValue<K = string, V = string> = [key: K, value: V];
+export type RequiredBy<
+  T,
+  K extends PropertyKey = keyof T,
+  R =
+    & Omit<T, K>
+    & {
+      [key in keyof T & K]: Exclude<T[key], undefined>;
+    },
+> = {
+  [key in keyof R]: R[key];
+};
+
+export type OmitBy<T, U> = {
+  [k in keyof T]: Exclude<T[k], U>;
+};

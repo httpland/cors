@@ -1,19 +1,64 @@
-import { Handler } from "./deps.ts";
+import { Handler, isFunction, OmitBy } from "./deps.ts";
 import {
-  CorsOptions,
+  CorsContext,
   corsResponse,
-  PreflightOptions,
   preflightResponse,
+  RequestContext,
 } from "./responses.ts";
 
-// /** Context of runtime data. */
-export interface RuntimeContext {
-  /** Cloned `Request` object. */
-  readonly request: Request;
-}
-
 /** CORS handler options. */
-export interface HandlerOptions extends CorsOptions, PreflightOptions {}
+export interface HandlerOptions {
+  /** Configures the `Access-Control-Allow-Origin` header.
+   *
+   * @default `Origin` field value
+   */
+  readonly allowOrigin?: string | ((context: RequestContext) => string);
+
+  /** Configures the `Access-Control-Allow-Methods` header.
+   *
+   * @default `Access-Control-Request-Methods` field value
+   */
+  readonly allowMethods?: string | ((context: RequestContext) => string);
+
+  /** Configures the `Access-Control-Allow-Headers` header.
+   *
+   * @default `Access-Control-Request-Headers` field value
+   */
+  readonly allowHeaders?: string | ((context: RequestContext) => string);
+
+  /** Configures the `Access-Control-Allow-Credentials` header. */
+  readonly allowCredentials?:
+    | string
+    | true
+    | ((context: RequestContext) => string | true);
+
+  /** Configures the `Access-Control-Max-Age` header. */
+  readonly maxAge?:
+    | string
+    | number
+    | ((context: RequestContext) => string | number);
+
+  /** Configures the `Access-Control-Expose-Headers` header. */
+  readonly exposeHeaders?: string | ((context: RequestContext) => string);
+
+  /** Called on cross origin request.
+   *
+   * @defaultValue {@link defaultOnCrossOrigin}
+   */
+  readonly onCrossOrigin?: (
+    headersInit: HeadersInit,
+    context: CorsContext,
+  ) => Response;
+
+  /** Called on preflight request.
+   *
+   * @defaultValue {@link defaultOnPreflight}
+   */
+  readonly onPreflight?: (
+    headersInit: HeadersInit,
+    context: RequestContext,
+  ) => Response;
+}
 
 /** Adds CORS functionality to the handler. And it returns a new handler.
  * ```ts
@@ -31,13 +76,65 @@ export function withCors(
   handler: Handler,
   options: HandlerOptions = {},
 ): Handler {
-  return async (req) => {
-    const maybePreflightResponse = preflightResponse(req, options);
+  return async (request) => {
+    const staticOptions = resolveDynamicOptions(options, {
+      request: request.clone(),
+    });
+    const maybePreflightResponse = preflightResponse(request, {
+      onPreflight: options.onPreflight,
+      ...staticOptions,
+    });
 
     if (maybePreflightResponse) return maybePreflightResponse;
 
-    const res = await handler(req);
+    const response = await handler(request);
 
-    return corsResponse(req, res, options);
+    return corsResponse(request, response, {
+      onCrossOrigin: options.onCrossOrigin,
+      ...staticOptions,
+    });
+  };
+}
+
+// deno-lint-ignore ban-types
+type StaticHandlerOptions = OmitBy<HandlerOptions, Function>;
+
+function resolveDynamicOptions(
+  {
+    allowOrigin,
+    allowMethods,
+    allowCredentials,
+    allowHeaders,
+    maxAge,
+    exposeHeaders,
+  }: HandlerOptions,
+  context: RequestContext,
+): StaticHandlerOptions {
+  if (isFunction(allowOrigin)) {
+    allowOrigin = allowOrigin(context);
+  }
+  if (isFunction(allowMethods)) {
+    allowMethods = allowMethods(context);
+  }
+  if (isFunction(allowHeaders)) {
+    allowHeaders = allowHeaders(context);
+  }
+  if (isFunction(allowCredentials)) {
+    allowCredentials = allowCredentials(context);
+  }
+  if (isFunction(maxAge)) {
+    maxAge = maxAge(context);
+  }
+  if (isFunction(exposeHeaders)) {
+    exposeHeaders = exposeHeaders(context);
+  }
+
+  return {
+    allowOrigin,
+    allowMethods,
+    allowHeaders,
+    allowCredentials,
+    maxAge,
+    exposeHeaders,
   };
 }

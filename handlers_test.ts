@@ -284,6 +284,54 @@ it(
   },
 );
 
+it(
+  describeTests,
+  "should pass context to dynamic definition",
+  async () => {
+    const mock = fn();
+    const handler = withCors(() =>
+      new Response(null, {
+        status: 404,
+      }), {
+      allowOrigin: (context) => {
+        mock(context.request.method);
+        return "*";
+      },
+    });
+    await handler(
+      new Request("http://localhost/", {
+        headers: {
+          origin: "*",
+        },
+        method: "POST",
+      }),
+    );
+
+    expect(mock).toHaveBeenCalledWith("POST");
+  },
+);
+
+it(
+  describeTests,
+  "should change default simple response",
+  async () => {
+    const handler = withCors(() => new Response(), {
+      onCrossOrigin: (_, { response }) => {
+        return response;
+      },
+    });
+    const res = await handler(
+      new Request("http://localhost/", {
+        headers: {
+          origin: "http://test.com",
+        },
+      }),
+    );
+
+    expect(res).toEqualResponse(new Response());
+  },
+);
+
 describe("preflight request", () => {
   it(
     describeTests,
@@ -563,6 +611,43 @@ describe("preflight request", () => {
             "access-control-allow-origin": "http://test.com",
             "access-control-max-age": "100",
             "vary":
+              "origin, access-control-request-headers, access-control-request-method",
+          },
+        }),
+      );
+    },
+  );
+
+  it(
+    describeTests,
+    "should change default preflight response",
+    async () => {
+      const handler = withCors(() => new Response(), {
+        onPreflight: (headers) => {
+          return new Response(null, {
+            headers,
+            status: 200,
+          });
+        },
+      });
+      const res = await handler(
+        new Request("http://localhost/", {
+          headers: {
+            origin: "http://test.com",
+            "Access-Control-Request-Method": "",
+            "Access-Control-Request-Headers": "",
+          },
+          method: "OPTIONS",
+        }),
+      );
+
+      expect(res).toEqualResponse(
+        new Response(null, {
+          headers: {
+            "access-control-allow-headers": "",
+            "access-control-allow-methods": "",
+            "access-control-allow-origin": "http://test.com",
+            vary:
               "origin, access-control-request-headers, access-control-request-method",
           },
         }),

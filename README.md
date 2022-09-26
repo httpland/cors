@@ -83,10 +83,11 @@ Configures the `Access-Control-Allow-Origin` header.
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
 
 withCors(() => new Response(), {
-  allowOrigin: "null",
+  allowOrigin: "*",
 });
 withCors(() => new Response(), {
-  allowOrigin: (origin, context) => {
+  allowOrigin: (context) => {
+    const origin = context.request.headers.get("origin")!;
     return /https?:\/\/api.test.test/.test(origin) ? origin : "null";
   },
 });
@@ -95,7 +96,7 @@ withCors(() => new Response(), {
 response:
 
 ```http
-access-control-allow-origin: null
+access-control-allow-origin: *
 ```
 
 ### allowMethods
@@ -224,12 +225,11 @@ import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
 import { mergeHeaders } from "https://deno.land/x/http_utils@$VERSION/mod.ts";
 
 withCors(() => new Response(), {
-  onCrossOrigin: async (headers, { request, handler }) => {
-    const res = await handler(request);
-    headers = mergeHeaders(headers, res.headers);
+  onCrossOrigin: (headersInit, { request, response }) => {
+    const headers = mergeHeaders(new Headers(headersInit), response.headers);
 
-    return new Response(res.body, {
-      ...res,
+    return new Response(response.body, {
+      ...response,
       headers,
     });
   },
