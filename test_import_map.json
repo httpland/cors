@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "https://deno.land/x/cors_protocol@$VERSION/": "./",
+    "https://deno.land/std/": "https://deno.land/std@0.177.0/"
+  }
+}
