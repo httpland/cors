@@ -9,13 +9,7 @@
 [![test](https://github.com/httpland/cors/actions/workflows/test.yaml/badge.svg)](https://github.com/httpland/cors/actions/workflows/test.yaml)
 [![NPM](https://nodei.co/npm/@httpland/cors.png?mini=true)](https://nodei.co/npm/@httpland/cors/)
 
-CORS protocol for standard `Request` and `Response`.
-
-## What
-
-Add CORS functionality to the handler.
-
-This means that the CORS process can be split from your handler.
+CORS protocol utilities for standard `Request` and `Response`.
 
 ## Packages
 
@@ -31,234 +25,112 @@ request = same-origin-request | cross-origin-request
 preflight request ∈ cross-origin-request
 ```
 
-- Cross-Origin request - A request that contains `origin` in the HTTP field that
-  is not a sequence of `scheme` and `host` in the request URL.
+- Cross-Origin request - A request that contains `origin` in the HTTP header
+  field.
 - Same-Origin request - Request that is not a Cross-Origin-request
 - Preflight request - A Cross-Origin request whose HTTP request method is
-  `OPTIONS` and whose HTTP fields include `access-control-request-headers` and
-  `access-control-request-methods`.
-- Handler - Function that receives a `Request` object as its first argument and
-  returns a `Response` object.
+  `OPTIONS` and whose HTTP header fields include
+  `access-control-request-headers` and `access-control-request-method`.
 
-## Add CORS functionality
+## CORS response
 
-`withCors` adds CORS functionality to the handler. And it returns a new handler.
+When a cross-origin request arrives, a response containing a CORS header should
+be returned. `withCors` returns a new `Response` object from the `Request` and
+`Response` that satisfies CORS.
+
+CORS request:
+
+Add the `access-control-allow-origin` header.
 
 ```ts
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-import { serve } from "https://deno.land/std@$VERSION/http/mod.ts";
+import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 
-function handler(req: Request): Response {
-  return new Response("Hello");
-}
+const corsRequest = new Request("http://api.test", {
+  headers: { origin: "http://cors.test" },
+});
+const yourResponse = new Response();
+const response = withCors(corsRequest, yourResponse);
 
-await serve(withCors(handler));
+assertEquals(response.headers.get("access-control-allow-origin", "*"));
 ```
 
-The handler handles preflight requests and cross-origin request appropriately.
+CORS preflight request:
 
-## Default behavior
-
-The `origin`, `access-control-request-method`, and
-`access-control-request-headers` are reflected in the request header as is.
-
-| request header                 | response header              |
-| ------------------------------ | ---------------------------- |
-| origin                         | access-control-allow-origin  |
-| access-control-request-method  | access-control-allow-methods |
-| access-control-request-headers | access-control-allow-headers |
-
-Other CORS headers are also fully controllable.
-
-## Customize CORS header
-
-`withCors` has an interface to customize CORS headers. All interfaces accept
-`string` or functions with context.
-
-### allowOrigin
-
-Configures the `Access-Control-Allow-Origin` header.
+Add `access-control-allow-origin`, `access-control-allow-methods` and
+`access-control-allow-headers` headers.
 
 ```ts
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 
-withCors(() => new Response(), {
-  allowOrigin: "*",
-});
-withCors(() => new Response(), {
-  allowOrigin: (context) => {
-    const origin = context.request.headers.get("origin")!;
-    return /https?:\/\/api.test.test/.test(origin) ? origin : "null";
+const preflightRequest = new Request("http://api.test", {
+  method: "OPTIONS",
+  headers: {
+    origin: "http://cors.test",
+    "access-control-request-method": "POST",
+    "access-control-request-headers": "x-server",
   },
 });
+const yourResponse = new Response("ok");
+const response = withCors(preflightRequest, yourResponse);
+
+assertEquals(response.status, 204);
+assertEquals(await response.text(), "");
+assertEquals(response.headers.get("access-control-allow-origin", "*"));
+assertEquals(response.headers.get("access-control-allow-methods", "POST"));
+assertEquals(response.headers.get("access-control-allow-headers", "x-server"));
 ```
 
-response:
+Same-origin request:
 
-```http
-access-control-allow-origin: *
-```
-
-### allowMethods
-
-Configures the `Access-Control-Allow-Methods` header.
+Nothing.
 
 ```ts
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 
-withCors(() => new Response(), {
-  allowMethods: "GET, POST, PUT",
+const request = new Request("http://cors.test", {
+  headers: { origin: "http://cors.test" },
 });
+const yourResponse = new Response();
+const response = withCors(request, yourResponse);
+
+assertEquals(response, yourResponse);
 ```
 
-response:
+### Customize CORS headers
 
-```http
-access-control-allow-methods: GET, POST, PUT
-```
+The Default CORS header is as follows:
 
-### allowHeaders
-
-Configures the `Access-Control-Allow-Headers` header.
+| Header field name                |                 Default                  | Option name      |
+| -------------------------------- | :--------------------------------------: | ---------------- |
+| access-control-allow-origin      |                   `*`                    | allowOrigin      |
+| access-control-allow-headers     | Same as `access-control-request-headers` | allowHeaders     |
+| access-control-allow-methods     | Same as `access-control-request-method`  | allowMethods     |
+| access-control-allow-credentials |                    -                     | allowCredentials |
+| access-control-expose-headers    |                    -                     | exposeHeaders    |
+| access-control-max-age           |                    -                     | maxAge           |
 
 ```ts
 import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 
-withCors(() => new Response(), {
-  allowHeaders: "content-type, x-custom",
+const corsRequest = new Request("http://api.test", {
+  headers: { origin: "http://cors.test" },
 });
-```
-
-response:
-
-```http
-access-control-allow-headers: content-type, x-custom
-```
-
-### allowCredentials
-
-Configures the `Access-Control-Allow-Credentials` header.
-
-```ts
-import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-
-withCors(() => new Response(), {
+const yourResponse = new Response();
+const response = withCors(corsRequest, yourResponse, {
+  allowOrigin: ["http://cors.test", "http://api.cors.test"].join(),
   allowCredentials: true,
 });
+
+assertEquals(
+  response.headers.get("access-control-allow-origin"),
+  "http://cors.test,http://api.cors.test",
+);
+assertEquals(response.headers.get("access-control-allow-credentials"), "true");
 ```
-
-response:
-
-```http
-access-control-allow-credentials: true
-```
-
-### maxAge
-
-Configures the `Access-Control-Max-Age` header.
-
-```ts
-import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-
-withCors(() => new Response(), {
-  maxAge: 100,
-});
-```
-
-response:
-
-```http
-access-control-max-age: 100
-```
-
-### exposeHeaders
-
-Configures the `Access-Control-Expose-Headers` header.
-
-```ts
-import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-
-withCors(() => new Response(), {
-  exposeHeaders: "x-custom",
-});
-```
-
-response:
-
-```http
-access-control-expose-headers: x-custom
-```
-
-## Customize response
-
-You have complete control over the response.You can define a function that
-returns a response.
-
-The first argument, headers, is a CORS header defined by you or by default.
-
-The default behavior is shown below.
-
-### onPreflight
-
-Event handler called on preflight request.
-
-```ts
-import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-
-withCors(() => new Response(), {
-  onPreflight: (headers, context) => {
-    return new Response(null, {
-      headers,
-      status: 204,
-      statusText: "No Content",
-    });
-  },
-});
-```
-
-### onCrossOrigin
-
-Event handler called on cross origin request expect preflight request.
-
-```ts
-import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
-import { mergeHeaders } from "https://deno.land/x/http_utils@$VERSION/mod.ts";
-
-withCors(() => new Response(), {
-  onCrossOrigin: (headersInit, { request, response }) => {
-    const headers = mergeHeaders(new Headers(headersInit), response.headers);
-
-    return new Response(response.body, {
-      ...response,
-      headers,
-    });
-  },
-});
-```
-
-## Spec
-
-Create a handler that returns the following response by default.
-
-### Cross-Origin request
-
-Add the following header to the handler response:
-
-- headers
-  - access-control-allow-origin
-  - vary
-
-### Preflight request
-
-Create the following response:
-
-- status - `204`
-- status text - `No Content`
-- headers
-  - access-control-allow-origin
-  - access-control-request-headers
-  - access-control-request-methods
-  - vary
 
 ## API
 
@@ -267,6 +139,6 @@ All APIs can be found in the
 
 ## License
 
-Copyright © 2022-present [httpland](https://github.com/httpland).
+Copyright © 2023-present [httpland](https://github.com/httpland).
 
 Released under the [MIT](./LICENSE) license
