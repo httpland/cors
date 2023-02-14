@@ -1,78 +1,88 @@
-export interface CorsRequestHeaders {
-  readonly origin: string;
+// Copyright 2023-latest the httpland authors. All rights reserved. MIT license.
+// This module is browser compatible.
+
+import { isNull } from "./deps.ts";
+
+/** CORS header field. */
+export enum Cors {
+  AllowOrigin = "access-control-allow-origin",
+  AllowCredentials = "access-control-allow-credentials",
+  AllowMethods = "access-control-allow-methods",
+  AllowHeaders = "access-control-allow-headers",
+  ExposeHeaders = "access-control-expose-headers",
+  MaxAge = "access-control-max-age",
+  RequestMethod = "access-control-request-method",
+  RequestHeaders = "access-control-request-headers",
 }
 
-export interface PreflightRequestHeaders extends CorsRequestHeaders {
-  readonly accessControlRequestHeaders: string;
-
-  readonly accessControlRequestMethod: string;
+export enum Field {
+  Vary = "vary",
+  Origin = "origin",
+  ContentType = "content-type",
+  ContentLength = "content-length",
 }
 
-/** Whether the request is cors request or not.
- * Living Standard - Fetch, 3.2.2 HTTP requests
- */
-export function isCrossOriginRequest(req: Request): boolean {
-  return req.headers.has("origin") && !isSameOriginRequest(req);
-}
+/** Header strict `Response`. */
+export class StrictResponse extends Response {
+  constructor(
+    body?: BodyInit | null | undefined,
+    init?: ResponseInit | undefined,
+  ) {
+    const hasContent = !!body;
 
-export function isSameOriginRequest(req: Request): boolean {
-  const originFromHeader = req.headers.get("origin");
+    super(body, init);
 
-  try {
-    // just to be sure
-    const origin = new URL(req.url).origin;
-    return origin === originFromHeader;
-  } catch {
-    return false;
+    if (!hasContent) {
+      this.headers.delete(Field.ContentType);
+      this.headers.delete(Field.ContentLength);
+    }
   }
 }
 
 /** Whether the request is preflight request or not.
  * Living Standard - Fetch, 3.2.2 HTTP requests
  */
-export function isPreflightRequest(req: Request): boolean {
-  return isCrossOriginRequest(req) &&
-    req.method === "OPTIONS" &&
-    req.headers.has("access-control-request-method") &&
-    req.headers.has("access-control-request-headers");
+export function isPreflightRequest(
+  request: Request,
+): request is PreflightRequest {
+  return isCrossOriginRequest(request) &&
+    request.method === "OPTIONS" &&
+    request.headers.has(Cors.RequestHeaders) &&
+    request.headers.has(Cors.RequestMethod);
 }
 
-/** Validate the request is cors request or not. */
-export function validateCorsRequest(
-  req: Request,
-): [valid: true, requestInit: { headers: { origin: string } }] | [
-  valid: false,
-] {
-  if (isCrossOriginRequest(req)) {
-    return [true, { headers: { origin: req.headers.get("origin")! } }];
-  }
-  return [false];
+export type PreflightHeaderField =
+  | "origin"
+  | "access-control-request-method"
+  | "access-control-request-headers";
+
+export interface PreflightHeaders extends Headers {
+  get(name: PreflightHeaderField): string;
+  get(name: string): string | null;
 }
 
-/** Validate the request is preflight request or not. */
-export function validatePreflightRequest(
-  req: Request,
-): [valid: true, requestInit: {
+export interface PreflightRequest extends Request {
   method: "OPTIONS";
-  headers: PreflightRequestHeaders;
-}] | [valid: false] {
-  if (isPreflightRequest(req)) {
-    return [true, {
-      method: req.method as "OPTIONS",
-      headers: {
-        origin: req.headers.get("origin")!,
-        accessControlRequestMethod: req.headers.get(
-          "access-control-request-method",
-        )!,
-        accessControlRequestHeaders: req.headers.get(
-          "access-control-request-headers",
-        )!,
-      },
-    }];
-  }
-  return [false];
+  headers: PreflightHeaders;
 }
 
-export function hasAccessControlAllowOrigin(headers: Headers): boolean {
-  return headers.has("access-control-allow-origin");
+export function isCrossOriginRequest(
+  request: Request,
+): request is Request & { headers: { get(name: "origin"): string } } {
+  const origin = request.headers.get(Field.Origin);
+
+  if (isNull(origin)) return false;
+
+  try {
+    const url = new URL(request.url);
+    const originURL = new URL(origin);
+
+    return !isSameOrigin(url, originURL);
+  } catch {
+    return false;
+  }
+}
+
+export function isSameOrigin(left: URL, right: URL): boolean {
+  return left.origin === right.origin;
 }
