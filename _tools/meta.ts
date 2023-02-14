@@ -12,7 +12,7 @@ export const makeOptions = (version: string): BuildOptions => ({
   package: {
     name: "@httpland/cors",
     version,
-    description: "CORS protocol for standard Request and Response",
+    description: "CORS protocol utilities for standard Request and Response",
     keywords: [
       "http",
       "cors",
