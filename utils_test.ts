@@ -3,7 +3,7 @@ import {
   isPreflightRequest,
   isSameOrigin,
 } from "./utils.ts";
-import { assertEquals, describe, Fn, it } from "./dev_deps.ts";
+import { assertEquals, describe, Fn, it } from "./_dev_deps.ts";
 
 Deno.test("isCrossOriginRequest should pass", () => {
   const table: Fn<typeof isCrossOriginRequest>[] = [

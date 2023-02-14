@@ -5,7 +5,7 @@ import {
   describe,
   equalsResponse,
   it,
-} from "./dev_deps.ts";
+} from "./_dev_deps.ts";
 
 describe("withCors", () => {
   it("should return same response when the request is not cors request", () => {
