@@ -7,4 +7,4 @@ export {
 } from "https://deno.land/x/isx@1.0.0-beta.24/mod.ts";
 export {
   mergeHeaders,
-} from "https://deno.land/x/http_utils@1.0.0-beta.2/mod.ts";
+} from "https://deno.land/x/http_utils@1.0.0-beta.2/headers.ts";

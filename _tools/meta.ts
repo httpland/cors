@@ -2,9 +2,9 @@ import { BuildOptions } from "https://deno.land/x/dnt@0.30.0/mod.ts";
 
 export const makeOptions = (version: string): BuildOptions => ({
   test: false,
-  shims: {
-    deno: false,
-    undici: true,
+  shims: {},
+  compilerOptions: {
+    lib: ["dom", "esnext", "dom.iterable"],
   },
   typeCheck: true,
   entryPoints: ["./mod.ts"],
