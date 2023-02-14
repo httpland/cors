@@ -1,3 +1,10 @@
+# [1.0.0-beta.5](https://github.com/httpland/cors/compare/1.0.0-beta.4...1.0.0-beta.5) (2022-09-26)
+
+
+### Features
+
+* **responses:** add cors and preflight response function ([1355f14](https://github.com/httpland/cors/commit/1355f14103b713011b676a24304d9b6faf54f7b9))
+
 # [1.0.0-beta.4](https://github.com/httpland/cors/compare/1.0.0-beta.3...1.0.0-beta.4) (2022-09-17)
 
 
