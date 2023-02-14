@@ -1,3 +1,10 @@
+# [1.0.0-beta.6](https://github.com/httpland/cors/compare/1.0.0-beta.5...1.0.0-beta.6) (2023-02-14)
+
+
+### Features
+
+* **cors:** change `withCors` interface, remove unnessesary modules ([7f9dd92](https://github.com/httpland/cors/commit/7f9dd9207e0578849a086fa0559f565c1b2352d3))
+
 # [1.0.0-beta.5](https://github.com/httpland/cors/compare/1.0.0-beta.4...1.0.0-beta.5) (2022-09-26)
 
 
