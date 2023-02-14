@@ -57,7 +57,7 @@ export interface Options {
  * const yourResponse = new Response();
  * const response = withCors(corsRequest, yourResponse);
  *
- * assertEquals(response.headers.get("access-control-allow-origin", "*"));
+ * assertEquals(response.headers.get("access-control-allow-origin"), "*");
  * ```
  */
 export function withCors(

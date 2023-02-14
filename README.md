@@ -52,7 +52,7 @@ const corsRequest = new Request("http://api.test", {
 const yourResponse = new Response();
 const response = withCors(corsRequest, yourResponse);
 
-assertEquals(response.headers.get("access-control-allow-origin", "*"));
+assertEquals(response.headers.get("access-control-allow-origin"), "*");
 ```
 
 CORS preflight request:
@@ -77,9 +77,9 @@ const response = withCors(preflightRequest, yourResponse);
 
 assertEquals(response.status, 204);
 assertEquals(await response.text(), "");
-assertEquals(response.headers.get("access-control-allow-origin", "*"));
-assertEquals(response.headers.get("access-control-allow-methods", "POST"));
-assertEquals(response.headers.get("access-control-allow-headers", "x-server"));
+assertEquals(response.headers.get("access-control-allow-origin"), "*");
+assertEquals(response.headers.get("access-control-allow-methods"), "POST");
+assertEquals(response.headers.get("access-control-allow-headers"), "x-server");
 ```
 
 Same-origin request:
