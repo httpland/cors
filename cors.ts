@@ -41,10 +41,24 @@ export interface Options {
   readonly exposeHeaders?: string;
 }
 
-/**
+/** Create `Response` with CORS headers.
  * @param request Any request.
  * @param response Any response.
  * @param options CORS header options.
+ *
+ * @example
+ * ```ts
+ * import { withCors } from "https://deno.land/x/cors_protocol@$VERSION/mod.ts";
+ * import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+ *
+ * const corsRequest = new Request("http://api.test", {
+ *   headers: { origin: "http://cors.test" },
+ * });
+ * const yourResponse = new Response();
+ * const response = withCors(corsRequest, yourResponse);
+ *
+ * assertEquals(response.headers.get("access-control-allow-origin", "*"));
+ * ```
  */
 export function withCors(
   request: Request,
